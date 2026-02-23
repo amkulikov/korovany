@@ -1,0 +1,355 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  background: #000;
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ========== HUD ========== */
+
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+}
+
+#hud > * {
+  pointer-events: auto;
+}
+
+#hud-main {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  min-width: 220px;
+  pointer-events: none;
+}
+
+#hud-body {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(5, 5, 15, 0.65);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  min-width: 180px;
+  pointer-events: none;
+}
+
+#hud-log {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 500px;
+  min-width: 300px;
+  min-height: 60px;
+  pointer-events: none;
+}
+
+#hud-minimap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(6, 6, 15, 0.88);
+  border-radius: 6px;
+  padding: 4px;
+  pointer-events: none;
+}
+
+#minimap-canvas {
+  display: block;
+  border-radius: 4px;
+}
+
+#hud-objectives {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 5, 0, 0.55);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  min-width: 200px;
+  pointer-events: none;
+}
+
+#hud-enemy-focus {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.62);
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  user-select: none;
+}
+
+#hud-message {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  text-align: center;
+  white-space: pre-line;
+  pointer-events: none;
+}
+
+/* ========== MENUS ========== */
+
+.menu-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 15, 0.95);
+  z-index: 100;
+}
+
+.menu-panel {
+  background: rgba(5, 5, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 30px 40px;
+  text-align: center;
+  max-width: 900px;
+  min-width: 320px;
+}
+
+.menu-title {
+  font-size: 32px;
+  color: #e6b31a;
+  margin-bottom: 8px;
+}
+
+.menu-subtitle {
+  font-size: 14px;
+  color: #bbb;
+  margin-bottom: 24px;
+}
+
+.menu-btn {
+  display: block;
+  width: 280px;
+  margin: 10px auto;
+  padding: 12px 0;
+  background: rgba(20, 20, 50, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.menu-btn:hover {
+  background: rgba(40, 40, 80, 0.95);
+}
+
+.menu-controls {
+  font-size: 11px;
+  color: #888;
+  margin-top: 20px;
+  line-height: 1.6;
+}
+
+/* Faction cards */
+.faction-cards {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.faction-card {
+  width: 260px;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.faction-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+}
+
+.faction-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.faction-card .desc {
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.faction-card .stats {
+  font-size: 12px;
+  color: #ccc;
+  margin-bottom: 16px;
+}
+
+.faction-card .play-btn {
+  padding: 8px 20px;
+  border-radius: 5px;
+  border: none;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Death screen */
+.death-panel {
+  background: rgba(50, 0, 0, 0.92);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+/* Shop & Inventory panels */
+#shop-panel .menu-panel,
+#inventory-panel .menu-panel {
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.shop-item, .inv-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  margin: 4px 0;
+  background: rgba(15, 15, 30, 0.9);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.shop-item button, .inv-item button {
+  padding: 4px 12px;
+  background: rgba(30, 30, 60, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shop-item button:hover, .inv-item button:hover {
+  background: rgba(50, 50, 90, 0.95);
+}
+
+/* Click to play */
+#click-to-play {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  cursor: pointer;
+}
+
+.click-to-play-text {
+  font-size: 24px;
+  color: #e6b31a;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Save slots */
+.save-slot {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px 16px;
+  background: rgba(15, 15, 30, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  color: #eee;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.save-slot:hover {
+  background: rgba(25, 25, 50, 0.95);
+}
+
+/* Body part colors */
+.bp-healthy { color: #b3ffb3; }
+.bp-injured { color: #ffb31a; }
+.bp-severed { color: #ff1a1a; }
+.bp-prosthetic { color: #80ccff; }
+.bp-bleeding { color: #ff1a1a; font-weight: bold; }
+
+.hp-high { color: #4dff4d; }
+.hp-mid { color: #ffb31a; }
+.hp-low { color: #ff1a1a; }
+.gold-color { color: #ffd944; }

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KOROVANY — 3D Экшон-РПГ</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>⚔️</text></svg>">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD overlay -->
+    <div id="hud" class="hidden">
+      <div id="hud-main"></div>
+      <div id="hud-body"></div>
+      <div id="hud-log"></div>
+      <div id="hud-minimap"><canvas id="minimap-canvas" width="200" height="200"></canvas></div>
+      <div id="hud-objectives"></div>
+      <div id="hud-enemy-focus" class="hidden"></div>
+      <div id="crosshair">+</div>
+      <div id="hud-message" class="hidden"></div>
+    </div>
+
+    <!-- Menus -->
+    <div id="menu-main" class="menu-overlay"></div>
+    <div id="menu-faction" class="menu-overlay hidden"></div>
+    <div id="menu-pause" class="menu-overlay hidden"></div>
+    <div id="menu-death" class="menu-overlay hidden"></div>
+    <div id="menu-load" class="menu-overlay hidden"></div>
+    <div id="shop-panel" class="menu-overlay hidden"></div>
+    <div id="inventory-panel" class="menu-overlay hidden"></div>
+
+    <!-- Click to play overlay (for Pointer Lock) -->
+    <div id="click-to-play" class="hidden">
+      <div class="click-to-play-text">Нажмите чтобы играть</div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
