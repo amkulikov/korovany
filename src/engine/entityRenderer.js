@@ -17,6 +17,41 @@ function box(geo, mat, x = 0, y = 0, z = 0) {
   return m
 }
 
+// ---- Логотипы на корованах (Ozon / Wildberries) ----
+const BRAND_LOGOS = ['assets/ozon.svg', 'assets/wb.svg']
+const _logoTextureCache = {}
+
+function loadLogoTexture(svgPath) {
+  if (_logoTextureCache[svgPath]) return _logoTextureCache[svgPath]
+  const promise = new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 256
+      canvas.height = 256
+      const ctx = canvas.getContext('2d')
+      // Фон — цвет дерева борта
+      ctx.fillStyle = '#8C6123'
+      ctx.fillRect(0, 0, 256, 256)
+      // Рисуем SVG по центру с отступами
+      const pad = 20
+      const maxW = 256 - pad * 2
+      const maxH = 256 - pad * 2
+      const scale = Math.min(maxW / img.width, maxH / img.height)
+      const w = img.width * scale
+      const h = img.height * scale
+      ctx.drawImage(img, (256 - w) / 2, (256 - h) / 2, w, h)
+      const tex = new THREE.CanvasTexture(canvas)
+      tex.colorSpace = THREE.SRGBColorSpace
+      resolve(tex)
+    }
+    img.onerror = () => resolve(null)
+    img.src = svgPath
+  })
+  _logoTextureCache[svgPath] = promise
+  return promise
+}
+
 // ---- Враги (Minecraft-style гуманоиды) ----
 
 export function createEnemyMesh(enemy) {
@@ -341,6 +376,35 @@ export function createKorovanMesh(korovan) {
   group.add(box(new THREE.BoxGeometry(0.55, 0.30, 0.35), lam(0.64, 0.58, 0.38), 0.3, 0.63, 0.10))
   // Бочка (кубическая, minecraft-стиль)
   group.add(box(new THREE.BoxGeometry(0.40, 0.50, 0.40), lam(0.50, 0.32, 0.14), 0.8, 0.67, -0.30))
+
+  // === Логотип бренда на бортах ===
+  const brandSvg = BRAND_LOGOS[Math.floor(Math.random() * BRAND_LOGOS.length)]
+  const logoPlanes = []
+  // Правый борт — лого наружу (+Z)
+  const logoR = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.8, 0.55),
+    new THREE.MeshLambertMaterial({ color: 0x8C6123 }) // временно цвет дерева
+  )
+  logoR.position.set(0, 0.77, 0.86)
+  group.add(logoR)
+  logoPlanes.push(logoR)
+  // Левый борт — лого наружу (-Z), повёрнуто на 180°
+  const logoL = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.8, 0.55),
+    new THREE.MeshLambertMaterial({ color: 0x8C6123 })
+  )
+  logoL.position.set(0, 0.77, -0.86)
+  logoL.rotation.y = Math.PI
+  group.add(logoL)
+  logoPlanes.push(logoL)
+  // Асинхронная загрузка текстуры логотипа
+  loadLogoTexture(brandSvg).then(tex => {
+    if (!tex) return
+    for (const plane of logoPlanes) {
+      plane.material.map = tex
+      plane.material.needsUpdate = true
+    }
+  })
 
   // Сохраняем ссылки для анимации
   group.userData = {
