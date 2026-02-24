@@ -253,7 +253,8 @@ export function showInventory(player, combatLog, onClose, onWeaponChanged) {
       } else if (data.type === 'armor') {
         const [, m] = inv.equipArmor(id); msg = m
       } else if (data.type === 'consumable') {
-        const [, m] = inv.useConsumable(id, player.body); msg = m
+        const [heal, m] = inv.useConsumable(id, player.body); msg = m
+        if (heal > 0) player.hp = player.body.totalHp
       } else if (data.type === 'prosthetic') {
         const [ok, m] = player.body.fitProsthetic(id)
         msg = m
