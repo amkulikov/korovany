@@ -40,18 +40,31 @@ export class Renderer {
       .forEach(c => this.scene.remove(c))
 
     // Солнце
-    const sun = new THREE.DirectionalLight(0xfff3d9, 1.0)
-    sun.position.set(200, 300, 200)
-    this.scene.add(sun)
+    this.sunLight = new THREE.DirectionalLight(0xfff3d9, 1.0)
+    this.sunLight.position.set(200, 300, 200)
+    this.scene.add(this.sunLight)
 
     // Подсветка — достаточно яркая чтобы теневые стороны были видны
-    const ambient = new THREE.AmbientLight(0x8899aa, 0.9)
-    this.scene.add(ambient)
+    this.ambientLight = new THREE.AmbientLight(0x8899aa, 0.9)
+    this.scene.add(this.ambientLight)
 
     // Заполняющий свет с противоположной стороны
-    const fill = new THREE.DirectionalLight(0x99aacc, 0.35)
-    fill.position.set(-150, 100, -200)
-    this.scene.add(fill)
+    this.fillLight = new THREE.DirectionalLight(0x99aacc, 0.35)
+    this.fillLight.position.set(-150, 100, -200)
+    this.scene.add(this.fillLight)
+
+    // Базовые интенсивности (для модуляции затемнения)
+    this._baseSunIntensity = 1.0
+    this._baseAmbientIntensity = 0.9
+    this._baseFillIntensity = 0.35
+  }
+
+  /** Модулировать яркость освещения (0..1, где 1 = полная яркость) */
+  setLightBrightness(factor) {
+    if (!this.sunLight) return
+    this.sunLight.intensity = this._baseSunIntensity * factor
+    this.ambientLight.intensity = this._baseAmbientIntensity * factor
+    this.fillLight.intensity = this._baseFillIntensity * factor
   }
 
   render() {

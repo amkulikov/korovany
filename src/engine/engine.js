@@ -6,8 +6,9 @@ import * as THREE from 'three'
 import { Renderer } from './renderer.js'
 import { Input } from './input.js'
 import { FPSCamera } from './camera.js'
-import { buildTerrain, buildBuildings, buildSky, updateSky, buildForest, buildWater, updateWater, toThree, getBuildingBoxes, riverInfluence, gorgeInfluenceAt, clampBridgeRailings } from './worldBuilder.js'
+import { buildTerrain, buildBuildings, buildSky, updateSky, buildForest, buildWater, updateWater, toThree, getBuildingBoxes, riverInfluence, gorgeInfluenceAt, clampBridgeRailings, getMountainDarkness } from './worldBuilder.js'
 import { createEnemyMesh, updateEnemyMesh, animateEnemyAttack, updateEnemyAttackAnim, createKorovanMesh, updateKorovanMesh, createWeaponMesh, animateWeapon } from './entityRenderer.js'
+import { GameAudio } from './audio.js'
 
 import { FACTIONS, ITEMS, ENEMY_SPAWNS, MEMES, pick, getZoneAt, rand, randInt } from '../game/constants.js'
 import { Player } from '../game/player.js'
@@ -19,6 +20,8 @@ import * as saveLoad from '../game/saveLoad.js'
 
 import { HUD } from '../ui/hud.js'
 import * as menus from '../ui/menus.js'
+import { isMobile } from './mobile.js'
+import { TouchControls } from '../ui/touchControls.js'
 
 /** Проверка столкновения точки (x,y) с AABB зданий. Возвращает скорректированную позицию. */
 function resolveCollision(newX, newY, radius, oldX, oldY) {
@@ -56,6 +59,17 @@ export class Game {
     this.fpsCam = new FPSCamera(this.renderer.camera, this.renderer.weaponCamera)
     this.hud = new HUD()
     this.combatLog = new CombatLog(6)
+    this.audio = new GameAudio()
+
+    // Мобильные тач-контролы
+    this.touchControls = null
+    if (isMobile) {
+      document.body.classList.add('mobile')
+      this.touchControls = new TouchControls()
+      this.input.setTouchControls(this.touchControls)
+      this.touchControls.onToggleMinimap = () => this.hud.toggleMinimap()
+      this.touchControls.onToggleBody = () => this.hud.toggleBody()
+    }
 
     this.player = null
     this.enemies = []
@@ -89,11 +103,14 @@ export class Game {
 
   _showMainMenu() {
     this.running = false
+    this.audio.stopAmbient()
     this.hud.hide()
+    if (this.touchControls) this.touchControls.hide()
     this.input.exitLock()
     menus.showMainMenu(
       (factionId) => this._startGame(factionId),
-      (slot) => this._loadAndStart(slot)
+      (slot) => this._loadAndStart(slot),
+      this.audio
     )
   }
 
@@ -199,20 +216,27 @@ export class Game {
     this._deathShown = false
     this._deathTimer = 0
 
-    this.combatLog.add(pick(MEMES.startGame))
-    if (factionId === 'elves') this.combatLog.add('Лес защищает тебя. Берегись солдат!')
-    else if (factionId === 'guards') this.combatLog.add('Охраняй дворец. Слушай командира!')
-    else if (factionId === 'villain') this.combatLog.add('Твои войска ждут приказа. Захвати трон!')
+    this.combatLog.add(pick(MEMES.startGame), 'system')
+    if (factionId === 'elves') this.combatLog.add('Лес защищает тебя. Берегись солдат!', 'system')
+    else if (factionId === 'guards') this.combatLog.add('Охраняй дворец. Слушай командира!', 'system')
+    else if (factionId === 'villain') this.combatLog.add('Твои войска ждут приказа. Захвати трон!', 'system')
     this._killstreak = 0
     this._enemyBarkTimer = 0
   }
 
   _showClickToPlay() {
+    if (isMobile) {
+      // На мобильных — сразу начинаем, показываем тач-контролы
+      if (this.touchControls) this.touchControls.show()
+      this.audio.playAmbient()
+      return
+    }
     const el = document.getElementById('click-to-play')
     el.classList.remove('hidden')
     const handler = () => {
       el.classList.add('hidden')
       this.input.requestLock()
+      this.audio.playAmbient()
       el.removeEventListener('click', handler)
     }
     el.addEventListener('click', handler)
@@ -264,6 +288,8 @@ export class Game {
       if (!this._deathShown) {
         this._deathShown = true
         this._deathTimer = 0
+        this.audio.playPlayerDeath()
+        this.audio.stopAmbient()
         this.hud.showPotracheno()
       }
       this._deathTimer += dt
@@ -271,6 +297,7 @@ export class Game {
         this._deathShown = false
         this.running = false
         this.input.exitLock()
+        if (this.touchControls) this.touchControls.hide()
         this.hud.hidePotracheno()
         menus.showDeath(player,
           (fid) => this._startGame(fid),
@@ -316,9 +343,10 @@ export class Game {
     {
       const rInf = riverInfluence(player.x, player.y)
       if (rInf > 0.5 && !player.dead) {
+        this.audio.playDrown()
         player.dead = true
         player.hp = 0
-        this.combatLog.add(pick(MEMES.drown))
+        this.combatLog.add(pick(MEMES.drown), 'system')
       }
     }
 
@@ -326,9 +354,10 @@ export class Game {
     {
       const gInf = gorgeInfluenceAt(player.x, player.y)
       if (gInf > 0.5 && !player.dead) {
+        this.audio.playGorgeFall()
         player.dead = true
         player.hp = 0
-        this.combatLog.add(pick(MEMES.gorge))
+        this.combatLog.add(pick(MEMES.gorge), 'system')
       }
     }
 
@@ -337,7 +366,7 @@ export class Game {
     if (bleed > 0) {
       this._bleedMsgTimer = (this._bleedMsgTimer || 0) - dt
       if (this._bleedMsgTimer <= 0) {
-        this.combatLog.add(`Кровотечение: -${bleed} HP`)
+        this.combatLog.add(`Кровотечение: -${bleed} HP`, 'body')
         this._bleedMsgTimer = 3
       }
     }
@@ -406,6 +435,16 @@ export class Game {
       }
     }
 
+    // Обновить видимость кнопки E на мобильных (рядом ли корован)
+    if (this.touchControls) {
+      let nearK = false
+      for (const k of this.korovans) {
+        if (!k.alive || k.looted) continue
+        if (k.distTo(player.x, player.y) < 12) { nearK = true; break }
+      }
+      this.touchControls.setInteractVisible(nearK)
+    }
+
     // Камера (до рендера оружия, чтобы рука двигалась синхронно с мышью)
     this.fpsCam.update(player.x, player.y, player.z)
 
@@ -421,6 +460,8 @@ export class Game {
       this.skyMesh.position.copy(this.renderer.camera.position)
       updateSky(this.skyMesh, this.renderer.scene, player.x, player.y)
     }
+    // Затемнение окружения вблизи Горы Тьмы
+    this.renderer.setLightBrightness(getMountainDarkness(player.x, player.y))
     // Анимация воды
     updateWater(this.waterMeshes, this.clock.elapsedTime)
 
@@ -485,6 +526,11 @@ export class Game {
 
     const len = Math.sqrt(mx * mx + my * my)
     if (len > 0) {
+      this._footstepTimer = (this._footstepTimer || 0) - dt
+      if (this._footstepTimer <= 0) {
+        this.audio.playFootstep()
+        this._footstepTimer = player.sneaking ? 0.6 : 0.35
+      }
       let newX = player.x + (mx / len) * speed * dt
       let newY = player.y + (my / len) * speed * dt
 
@@ -515,6 +561,8 @@ export class Game {
       player.y = newY
     }
 
+    if (len === 0) this._footstepTimer = 0
+
     // Границы карты
     player.x = Math.max(-340, Math.min(340, player.x))
     player.y = Math.max(-340, Math.min(340, player.y))
@@ -533,6 +581,7 @@ export class Game {
     if (!player.canAttack()) return
 
     this.weaponAtkT = 0 // Анимация
+    this.audio.playSwing()
 
     // Ближайший враг
     let closest = null, closestDist = 4.0
@@ -548,18 +597,20 @@ export class Game {
       player.attackCooldown = 0.8
 
       if (result.hit) {
+        this.audio.playHitEnemy()
         let msg = `Удар по ${closest.name} (${result.part}): ${result.damage} урона`
         if (result.crit) msg += ` [КРИТ! ${pick(MEMES.crit)}]`
-        this.combatLog.add(msg)
+        this.combatLog.add(msg, 'player')
 
         if (result.killed) {
+          this.audio.playEnemyDeath()
           player.kills++
           this._killstreak++
           const loot = closest.getLoot()
           player.inventory.gold += loot.gold
           for (const [id, qty] of Object.entries(loot.items)) player.inventory.add(id, qty)
           const killMsg = closest.hp <= 30 ? pick(MEMES.killWeak) : pick(MEMES.kill)
-          this.combatLog.add(`${closest.name} убит! +${loot.gold} золота. ${killMsg}`)
+          this.combatLog.add(`${closest.name} убит! +${loot.gold} золота. ${killMsg}`, 'loot')
           if (closest.mesh) { closest.mesh.rotation.z = Math.PI / 2; closest.mesh.position.y = 0.3 }
 
           // Killstreak
@@ -567,7 +618,7 @@ export class Game {
           if (ksMsg) this.hud.showMessage(ksMsg, '#ff9900', 3)
         }
       } else {
-        this.combatLog.add(`${closest.name} уклонился! ${pick(MEMES.dodge)}`)
+        this.combatLog.add(`${closest.name} уклонился! ${pick(MEMES.dodge)}`, 'player')
       }
       return
     }
@@ -588,13 +639,13 @@ export class Game {
     const player = this.player
     const dmg = player.attackDamage()
     const { loot, gold, messages } = korovan.attack(dmg)
-    for (const m of messages) this.combatLog.add(m)
+    for (const m of messages) this.combatLog.add(m, 'korovan')
     player.attackCooldown = 0.8
 
     if (korovan.looted) {
       player.inventory.gold += gold
       for (const [id, qty] of Object.entries(loot)) player.inventory.add(id, qty)
-      this.combatLog.add(pick(MEMES.korobanRob))
+      this.combatLog.add(pick(MEMES.korobanRob), 'loot')
       this.hud.showMessage(`Корован разбит! +${gold} золота`, '#ffd944', 3)
     } else {
       this.hud.showMessage(
@@ -630,6 +681,7 @@ export class Game {
   _toggleShop() {
     if (this.inShop) { this._closeShop(); return }
     this.inShop = true
+    if (this.touchControls) this.touchControls.hide()
     this.input.exitLock()
     const zoneId = getZoneAt(this.player.x, this.player.y)
     this.market = new Market(zoneId)
@@ -640,6 +692,7 @@ export class Game {
     this.inShop = false
     menus.hideShop()
     this.input.requestLock()
+    if (this.touchControls) this.touchControls.show()
   }
 
   // ---- Инвентарь ----
@@ -647,6 +700,7 @@ export class Game {
   _toggleInventory() {
     if (this.inInventory) { this._closeInventory(); return }
     this.inInventory = true
+    if (this.touchControls) this.touchControls.hide()
     this.input.exitLock()
     menus.showInventory(this.player, this.combatLog, () => this._closeInventory(), () => {
       this.weaponMesh = createWeaponMesh(this.renderer.weaponScene, this.player.inventory.weapon)
@@ -657,19 +711,20 @@ export class Game {
     this.inInventory = false
     menus.hideInventory()
     this.input.requestLock()
+    if (this.touchControls) this.touchControls.show()
   }
 
   // ---- Сохранение ----
 
   _quickSave() {
     const [, msg] = saveLoad.saveGame(this.player, 'quicksave', this.enemies, this.korovans)
-    this.combatLog.add(msg)
+    this.combatLog.add(msg, 'save')
     this.hud.showMessage(pick(MEMES.save), '#4dff4d', 2.5)
   }
 
   _quickLoad() {
     const [ok, msg] = saveLoad.loadGame(this.player, 'quicksave', this.enemies, this.korovans)
-    this.combatLog.add(msg)
+    this.combatLog.add(msg, 'save')
     if (ok) {
       this._syncWorldAfterLoad()
       this.hud.showMessage(pick(MEMES.load), '#4dff4d', 2.5)
@@ -698,15 +753,19 @@ export class Game {
     if (this.inShop || this.inInventory) return
     this.paused = !this.paused
     if (this.paused) {
+      this.audio.stopAmbient()
+      if (this.touchControls) this.touchControls.hide()
       this.input.exitLock()
       menus.showPause(
-        () => { this.paused = false; this.input.requestLock() },
+        () => { this.paused = false; this.audio.playAmbient(); this.input.requestLock(); if (this.touchControls) this.touchControls.show() },
         () => this._quickSave(),
-        () => { this.paused = false; this._cleanup(); this._showMainMenu() }
+        () => { this.paused = false; this._cleanup(); this._showMainMenu() },
+        this.audio
       )
     } else {
       menus.hidePause()
       this.input.requestLock()
+      if (this.touchControls) this.touchControls.show()
     }
   }
 
@@ -714,10 +773,13 @@ export class Game {
   _onLockLost() {
     if (!this.running || this.paused || this.inShop || this.inInventory) return
     this.paused = true
+    this.audio.stopAmbient()
+    if (this.touchControls) this.touchControls.hide()
     menus.showPause(
-      () => { this.paused = false; this.input.requestLock() },
+      () => { this.paused = false; this.audio.playAmbient(); this.input.requestLock(); if (this.touchControls) this.touchControls.show() },
       () => this._quickSave(),
-      () => { this.paused = false; this._cleanup(); this._showMainMenu() }
+      () => { this.paused = false; this._cleanup(); this._showMainMenu() },
+      this.audio
     )
   }
 
@@ -729,7 +791,7 @@ export class Game {
     if (slot < consumables.length) {
       const [id] = consumables[slot]
       const [, msg] = inv.useConsumable(id, this.player.body)
-      this.combatLog.add(msg)
+      this.combatLog.add(msg, 'system')
     }
   }
 
@@ -742,11 +804,16 @@ export class Game {
       const oldX = enemy.x, oldY = enemy.y
       const hostile = player.isHostileTo(enemy.faction)
       const result = enemy.update(dt, player.x, player.y, player.dead, hostile)
+      if (enemy.state === 'chase' && enemy._prevState !== 'chase') {
+        this.audio.playAggro()
+      }
+      enemy._prevState = enemy.state
       if (result?.type === 'attack') {
         const { actual, messages } = player.takeDamage(result.damage)
-        for (const m of messages) this.combatLog.add(m)
+        for (const m of messages) this.combatLog.add(`${enemy.name}: ${m}`, 'enemy')
         if (actual > 0) {
-          this.combatLog.add(pick(MEMES.playerHit))
+          this.audio.playHitPlayer()
+          this.combatLog.add(pick(MEMES.playerHit), 'body')
           this._killstreak = 0
         }
         if (messages.length > 0) this.hud.showMessage(messages[0], '#ff3333', 1.5)
@@ -756,7 +823,7 @@ export class Game {
         this._enemyBarkTimer = (this._enemyBarkTimer || 0)
         if (this._enemyBarkTimer <= 0) {
           const barks = MEMES.enemyBark[enemy.faction] || MEMES.enemyBark.neutral
-          this.combatLog.add(`${enemy.name}: "${pick(barks)}"`)
+          this.combatLog.add(`${enemy.name}: "${pick(barks)}"`, 'enemy')
           this._enemyBarkTimer = 4
         }
       }

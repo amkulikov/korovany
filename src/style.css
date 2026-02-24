@@ -75,11 +75,20 @@ body {
   padding: 8px 14px;
   border-radius: 6px;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.4;
   max-width: 500px;
   min-width: 300px;
   min-height: 60px;
   pointer-events: none;
+}
+
+#hud-log > div {
+  padding: 1px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#hud-log > div:last-child {
+  border-bottom: none;
 }
 
 #hud-minimap {
@@ -353,3 +362,267 @@ body {
 .hp-mid { color: #ffb31a; }
 .hp-low { color: #ff1a1a; }
 .gold-color { color: #ffd944; }
+
+/* ========== SOUND TOGGLE (in menus) ========== */
+
+.sound-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(20, 20, 50, 0.9);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.sound-toggle:hover {
+  background: rgba(40, 40, 80, 0.95);
+}
+
+/* ========== TOUCH CONTROLS ========== */
+
+#touch-controls {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+#touch-controls > * {
+  pointer-events: auto;
+}
+
+.touch-joystick-base {
+  position: absolute;
+  bottom: calc(30px + env(safe-area-inset-bottom));
+  left: calc(20px + env(safe-area-inset-left));
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  touch-action: none;
+}
+
+.touch-joystick-knob {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch-btn {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.touch-btn:active, .touch-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.touch-btn-attack {
+  width: 64px;
+  height: 64px;
+  right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  background: rgba(200, 50, 50, 0.25);
+  border-color: rgba(255, 80, 80, 0.5);
+  font-size: 24px;
+}
+
+.touch-btn-jump {
+  width: 52px;
+  height: 52px;
+  right: calc(90px + env(safe-area-inset-right));
+  bottom: calc(40px + env(safe-area-inset-bottom));
+  font-size: 14px;
+}
+
+.touch-btn-interact {
+  width: 48px;
+  height: 48px;
+  right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(180px + env(safe-area-inset-bottom));
+  background: rgba(50, 180, 80, 0.25);
+  border-color: rgba(80, 220, 100, 0.5);
+  font-size: 16px;
+}
+
+.touch-btn-pause {
+  width: 44px;
+  height: 44px;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(10px + env(safe-area-inset-right));
+  font-size: 16px;
+}
+
+.touch-btn-map {
+  width: 44px;
+  height: 44px;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(60px + env(safe-area-inset-right));
+  font-size: 14px;
+}
+
+.touch-btn-body {
+  width: 36px;
+  height: 36px;
+  right: calc(10px + env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+}
+
+.touch-toolbar {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.touch-toolbar .touch-btn {
+  position: static;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* Camera swipe area (invisible, covers right half) */
+.touch-camera-area {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ========== MOBILE (class-based, any orientation) ========== */
+
+.mobile #hud-minimap {
+  display: none;
+}
+.mobile #hud-minimap.mobile-visible {
+  display: block;
+}
+
+.mobile #hud-body {
+  display: none;
+}
+.mobile #hud-body.mobile-visible {
+  display: block;
+  font-size: 10px;
+  min-width: 140px;
+  right: 50px;
+  padding: 6px 10px;
+}
+
+/* ========== MOBILE RESPONSIVE ========== */
+
+@media (max-width: 768px) {
+  #hud-main {
+    font-size: 11px;
+    min-width: 150px;
+    bottom: calc(70px + env(safe-area-inset-bottom));
+    padding: 6px 10px;
+  }
+
+  #hud-log {
+    font-size: 10px;
+    max-width: 280px;
+    min-width: 180px;
+    bottom: calc(70px + env(safe-area-inset-bottom));
+    min-height: 40px;
+    padding: 6px 10px;
+  }
+
+  #hud-objectives {
+    font-size: 10px;
+    min-width: 140px;
+    padding: 6px 10px;
+  }
+
+  #crosshair {
+    font-size: 18px;
+  }
+
+  #hud-message {
+    font-size: 13px;
+    padding: 8px 14px;
+    max-width: 85vw;
+  }
+
+  .menu-btn {
+    width: 100%;
+    min-height: 48px;
+    font-size: 15px;
+  }
+
+  .menu-panel {
+    width: 90vw;
+    padding: 20px 16px;
+    min-width: unset;
+  }
+
+  .menu-title {
+    font-size: 24px;
+  }
+
+  .faction-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .faction-card {
+    width: 100%;
+    max-width: 300px;
+    padding: 14px;
+  }
+
+  .menu-controls {
+    display: none;
+  }
+
+  .shop-item button, .inv-item button {
+    min-height: 44px;
+    padding: 6px 14px;
+  }
+
+  .shop-item, .inv-item {
+    padding: 8px 10px;
+  }
+
+  #shop-panel .menu-panel,
+  #inventory-panel .menu-panel {
+    max-width: 95vw;
+    max-height: 85vh;
+  }
+}

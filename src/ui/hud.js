@@ -2,8 +2,10 @@
  * HTML/CSS HUD: HP, части тела, лог, миникарта, цели, прицел.
  */
 import * as THREE from 'three'
+import { isMobile } from '../engine/mobile.js'
 import { getZoneAt, ZONES } from '../game/constants.js'
 import { Status } from '../game/body.js'
+import { LOG_SOURCE } from '../game/combat.js'
 import { toThree } from '../engine/worldBuilder.js'
 import {
   MAIN_ROAD, RIVER_PATH, GORGE, BRIDGES,
@@ -37,8 +39,23 @@ export class HUD {
     this._labels = new Map() // enemy.id → DOM element
   }
 
-  show() { this.el.classList.remove('hidden') }
+  show() {
+    this.el.classList.remove('hidden')
+    if (isMobile) {
+      // На мобильных скрываем миникарту и тело по умолчанию
+      this.bodyEl.classList.remove('mobile-visible')
+      document.getElementById('hud-minimap').classList.remove('mobile-visible')
+    }
+  }
   hide() { this.el.classList.add('hidden') }
+
+  toggleMinimap() {
+    document.getElementById('hud-minimap').classList.toggle('mobile-visible')
+  }
+
+  toggleBody() {
+    this.bodyEl.classList.toggle('mobile-visible')
+  }
 
   /** Предварительно рисуем рельеф в оффскрин-канвас (один раз) */
   _buildTerrainImage() {
@@ -293,7 +310,23 @@ export class HUD {
   }
 
   _updateLog(combatLog) {
-    this.logEl.textContent = combatLog.text
+    // Каждое событие — отдельная строка с иконкой источника
+    let html = ''
+    for (const entry of combatLog.lines) {
+      // Обратная совместимость: строка без source
+      if (typeof entry === 'string') {
+        html += `<div style="color:#aaa">\u25B6 ${this._esc(entry)}</div>`
+        continue
+      }
+      const src = LOG_SOURCE[entry.source] || LOG_SOURCE.system
+      html += `<div><span style="color:${src.color}">${src.icon}</span> ${this._esc(entry.msg)}</div>`
+    }
+    this.logEl.innerHTML = html
+  }
+
+  /** Простой HTML-эскейп */
+  _esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   }
 
   _updateObjectives(player) {
@@ -374,6 +407,8 @@ export class HUD {
   }
 
   _updateMinimap(player, enemies, korovans, cameraYaw) {
+    // Пропуск рендера если миникарта скрыта (мобильные)
+    if (isMobile && !document.getElementById('hud-minimap').classList.contains('mobile-visible')) return
     const ctx = this.minimapCtx
     const S = 200
     const scale = (S - 20) / 700

@@ -178,18 +178,18 @@ export function updateEnemyAttackAnim(enemy, dt) {
   ud.attackTimer += dt
   const t = ud.attackTimer
 
-  if (t < 0.15) {
-    // Замах назад
-    const p = t / 0.15
-    ud.rightArmPivot.rotation.x = -1.2 * p
-  } else if (t < 0.3) {
-    // Удар вперёд
-    const p = (t - 0.15) / 0.15
-    ud.rightArmPivot.rotation.x = -1.2 + 2.4 * p
+  if (t < 0.12) {
+    // Замах — рука назад (+ = от лица)
+    const p = t / 0.12
+    ud.rightArmPivot.rotation.x = 1.0 * p
+  } else if (t < 0.25) {
+    // Удар — рука вперёд, остриём к цели (- = к лицу/вперёд)
+    const p = (t - 0.12) / 0.13
+    ud.rightArmPivot.rotation.x = 1.0 - 2.2 * p
   } else if (t < 0.5) {
-    // Возврат
-    const p = (t - 0.3) / 0.2
-    ud.rightArmPivot.rotation.x = 1.2 * (1 - p)
+    // Возврат в исходное
+    const p = (t - 0.25) / 0.25
+    ud.rightArmPivot.rotation.x = -1.2 * (1 - p)
   } else {
     ud.attacking = false
     ud.rightArmPivot.rotation.x = 0
@@ -519,21 +519,21 @@ export function animateWeapon(weaponMesh, t) {
     const baseRx = -0.15, baseRy = -0.2, baseRz = 0.08
 
     if (t >= 0 && t < 1) {
-      if (t < 0.25) {
-        // Отводим кулак назад
-        const p = t / 0.25
-        weaponMesh.position.set(baseX, baseY + 0.06 * p, baseZ + 0.12 * p)
-        weaponMesh.rotation.set(baseRx - 0.25 * p, baseRy, baseRz)
-      } else if (t < 0.5) {
-        // Удар вперёд
-        const p = (t - 0.25) / 0.25
-        weaponMesh.position.set(baseX - 0.05 * p, baseY + 0.06 * (1 - p), baseZ + 0.12 - 0.30 * p)
-        weaponMesh.rotation.set(baseRx - 0.25 + 0.5 * p, baseRy, baseRz)
+      if (t < 0.15) {
+        // Отводим кулак назад — кисть наклоняется к камере (+rotation.x)
+        const p = t / 0.15
+        weaponMesh.position.set(baseX, baseY + 0.06 * p, baseZ + 0.10 * p)
+        weaponMesh.rotation.set(baseRx + 0.20 * p, baseRy, baseRz)
+      } else if (t < 0.4) {
+        // Удар — кулак вперёд, костяшками в экран (-rotation.x)
+        const p = (t - 0.15) / 0.25
+        weaponMesh.position.set(baseX - 0.04 * p, baseY + 0.06 * (1 - p), baseZ + 0.10 - 0.35 * p)
+        weaponMesh.rotation.set(baseRx + 0.20 - 0.50 * p, baseRy, baseRz)
       } else {
         // Возврат
-        const p = (t - 0.5) / 0.5
-        weaponMesh.position.set(baseX - 0.05 * (1 - p), baseY, baseZ - 0.18 * (1 - p))
-        weaponMesh.rotation.set(baseRx + 0.25 * (1 - p), baseRy, baseRz)
+        const p = (t - 0.4) / 0.6
+        weaponMesh.position.set(baseX - 0.04 * (1 - p), baseY, baseZ - 0.25 * (1 - p))
+        weaponMesh.rotation.set(baseRx - 0.30 * (1 - p), baseRy, baseRz)
       }
     } else {
       weaponMesh.position.set(baseX, baseY, baseZ)
@@ -548,30 +548,30 @@ export function animateWeapon(weaponMesh, t) {
   let extraX = 0, extraY = 0, extraZ = 0, pitchAdd = 0, yawAdd = 0, rollAdd = 0
 
   if (t >= 0 && t < 1) {
-    if (t < 0.2) {
-      // Замах — поднять вправо-назад
-      const p = t / 0.2
-      extraY = 0.12 * p
-      extraZ = 0.06 * p
-      extraX = 0.06 * p
-      pitchAdd = -0.5 * p
-      rollAdd = 0.3 * p
-    } else if (t < 0.45) {
-      // Удар — рубануть влево-вниз-вперёд (диагональный слэш)
-      const p = (t - 0.2) / 0.25
-      extraY = 0.12 - 0.22 * p
-      extraZ = 0.06 - 0.20 * p
-      extraX = 0.06 - 0.18 * p
-      pitchAdd = -0.5 + 0.9 * p
-      rollAdd = 0.3 - 0.7 * p
+    if (t < 0.15) {
+      // Замах — отвести вправо-назад, остриё к камере (+pitch)
+      const p = t / 0.15
+      extraY = 0.10 * p
+      extraZ = 0.08 * p
+      extraX = 0.05 * p
+      pitchAdd = 0.45 * p
+      rollAdd = 0.25 * p
+    } else if (t < 0.4) {
+      // Удар — рубануть вперёд, остриё в экран (-pitch)
+      const p = (t - 0.15) / 0.25
+      extraY = 0.10 - 0.28 * p
+      extraZ = 0.08 - 0.32 * p
+      extraX = 0.05 - 0.16 * p
+      pitchAdd = 0.45 - 1.15 * p
+      rollAdd = 0.25 - 0.65 * p
     } else {
       // Возврат
-      const p = (t - 0.45) / 0.55
-      extraY = -0.10 * (1 - p)
-      extraZ = -0.14 * (1 - p)
-      extraX = -0.12 * (1 - p)
-      pitchAdd = 0.4 * (1 - p)
-      rollAdd = -0.4 * (1 - p)
+      const p = (t - 0.4) / 0.6
+      extraY = -0.18 * (1 - p)
+      extraZ = -0.24 * (1 - p)
+      extraX = -0.11 * (1 - p)
+      pitchAdd = -0.70 * (1 - p)
+      rollAdd = -0.40 * (1 - p)
     }
   }
 

@@ -1041,6 +1041,31 @@ export function updateSky(skyMesh, scene, px, py) {
   }
 }
 
+// ---- Затемнение у Горы Тьмы ----
+
+// Радиус затемнения = расстояние от горы до ближайшего моста
+const _mtx = DARK_MOUNTAIN.center[0], _mty = DARK_MOUNTAIN.center[1]
+const _bridgeDists = [
+  Math.sqrt((BRIDGES.gorge.pos.x - _mtx) ** 2 + (BRIDGES.gorge.pos.y - _mty) ** 2),
+  Math.sqrt((BRIDGES.river.pos.x - _mtx) ** 2 + (BRIDGES.river.pos.y - _mty) ** 2),
+]
+const _DARKNESS_RADIUS = Math.min(..._bridgeDists)
+
+/**
+ * Коэффициент яркости окружения в зависимости от близости к Горе Тьмы.
+ * У горы = 0.5 (50%), на расстоянии моста и дальше = 1.0 (100%).
+ * Плавная интерполяция (smoothstep).
+ */
+export function getMountainDarkness(px, py) {
+  const dx = px - _mtx, dy = py - _mty
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  if (dist >= _DARKNESS_RADIUS) return 1.0
+  // smoothstep: плавный переход от 0.5 (у горы) до 1.0 (у моста)
+  const t = dist / _DARKNESS_RADIUS
+  const smooth = t * t * (3 - 2 * t) // smoothstep(0, 1, t)
+  return 0.5 + 0.5 * smooth
+}
+
 // ---- Деревья (LOD) ----
 
 const TREE_DEFS = {

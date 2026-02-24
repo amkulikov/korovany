@@ -31,6 +31,21 @@ function randomTargetPart(agi) {
   return parts[Math.floor(Math.random() * parts.length)]
 }
 
+/**
+ * Источники событий для лога.
+ * Каждый имеет иконку и цвет для отображения в HUD.
+ */
+export const LOG_SOURCE = {
+  player:  { icon: '\u2694', color: '#6cf' },   // мечи — атаки игрока
+  enemy:   { icon: '\u2620', color: '#f66' },    // череп — атаки врагов
+  korovan: { icon: '\uD83D\uDED2', color: '#fd4' }, // тележка — корованы
+  loot:    { icon: '\uD83D\uDCB0', color: '#fd4' }, // мешок — лут/золото
+  trade:   { icon: '\uD83D\uDCB0', color: '#9d9' }, // торговля
+  body:    { icon: '\uD83E\uDE78', color: '#f88' },  // капля — ранения/кровь
+  system:  { icon: '\u25B6', color: '#aaa' },    // треугольник — системные
+  save:    { icon: '\uD83D\uDCBE', color: '#8f8' }, // дискета — сохранения
+}
+
 /** Лог боевых сообщений */
 export class CombatLog {
   constructor(maxLines = 8) {
@@ -38,11 +53,11 @@ export class CombatLog {
     this.maxLines = maxLines
   }
 
-  add(msg) {
-    this.lines.push(msg)
+  /** @param {string} msg текст сообщения @param {string} source ключ из LOG_SOURCE */
+  add(msg, source = 'system') {
+    this.lines.push({ msg, source })
     if (this.lines.length > this.maxLines) this.lines.shift()
   }
 
   clear() { this.lines = [] }
-  get text() { return this.lines.join('\n') }
 }

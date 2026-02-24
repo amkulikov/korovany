@@ -7,6 +7,18 @@ import * as saveLoad from '../game/saveLoad.js'
 
 const $ = id => document.getElementById(id)
 
+/** Вставляет кнопку звука в .menu-panel и вешает обработчик */
+function _addSoundBtn(container, audio) {
+  if (!audio) return
+  const btn = container.querySelector('.sound-toggle')
+  if (!btn) return
+  btn.textContent = audio.muted ? '🔇' : '🔊'
+  btn.onclick = () => {
+    const muted = audio.toggleMute()
+    btn.textContent = muted ? '🔇' : '🔊'
+  }
+}
+
 function hideAll() {
   for (const id of ['menu-main', 'menu-faction', 'menu-pause', 'menu-death', 'menu-load', 'shop-panel', 'inventory-panel']) {
     $(id).classList.add('hidden')
@@ -15,12 +27,13 @@ function hideAll() {
 
 // ---- Главное меню ----
 
-export function showMainMenu(onNewGame, onLoad) {
+export function showMainMenu(onNewGame, onLoad, audio) {
   hideAll()
   const el = $('menu-main')
   el.classList.remove('hidden')
   el.innerHTML = `
-    <div class="menu-panel">
+    <div class="menu-panel" style="position:relative">
+      <button class="sound-toggle" title="Звук вкл/выкл"></button>
       <div class="menu-title">>>> KOROVANY <<<</div>
       <div class="menu-subtitle">3D Экшон-РПГ</div>
       <div class="menu-tip" style="color:#888;font-size:13px;margin:8px 0;font-style:italic">${pick(MEMES.tips)}</div>
@@ -33,7 +46,8 @@ export function showMainMenu(onNewGame, onLoad) {
     </div>
   `
   el.querySelector('#btn-new-game').onclick = () => showFactionMenu(onNewGame)
-  el.querySelector('#btn-load-game').onclick = () => showLoadMenu(onLoad, () => showMainMenu(onNewGame, onLoad))
+  el.querySelector('#btn-load-game').onclick = () => showLoadMenu(onLoad, () => showMainMenu(onNewGame, onLoad, audio))
+  _addSoundBtn(el, audio)
 }
 
 // ---- Выбор фракции ----
@@ -104,12 +118,13 @@ function showLoadMenu(onLoad, onBack) {
 
 // ---- Пауза ----
 
-export function showPause(onResume, onSave, onMainMenu) {
+export function showPause(onResume, onSave, onMainMenu, audio) {
   hideAll()
   const el = $('menu-pause')
   el.classList.remove('hidden')
   el.innerHTML = `
-    <div class="menu-panel">
+    <div class="menu-panel" style="position:relative">
+      <button class="sound-toggle" title="Звук вкл/выкл"></button>
       <div class="menu-title">ПАУЗА</div>
       <div id="pause-toast" style="min-height:24px;margin-bottom:8px"></div>
       <button class="menu-btn" id="btn-resume">Продолжить</button>
@@ -128,6 +143,7 @@ export function showPause(onResume, onSave, onMainMenu) {
     setTimeout(() => { toast.style.opacity = '0' }, 2500)
   }
   el.querySelector('#btn-to-menu').onclick = () => { hideAll(); onMainMenu() }
+  _addSoundBtn(el, audio)
 }
 
 export function hidePause() { $('menu-pause').classList.add('hidden') }
@@ -180,14 +196,14 @@ export function showShop(player, market, combatLog, onClose) {
   for (const btn of el.querySelectorAll('[data-action="buy"]')) {
     btn.onclick = () => {
       const [ok, msg] = market.playerBuy(player.inventory, btn.dataset.id)
-      combatLog.add(msg)
+      combatLog.add(msg, 'trade')
       if (ok) showShop(player, market, combatLog, onClose) // Обновить
     }
   }
   for (const btn of el.querySelectorAll('[data-action="sell"]')) {
     btn.onclick = () => {
       const [ok, msg] = market.playerSell(player.inventory, btn.dataset.id)
-      combatLog.add(msg)
+      combatLog.add(msg, 'trade')
       if (ok) showShop(player, market, combatLog, onClose)
     }
   }
@@ -243,7 +259,7 @@ export function showInventory(player, combatLog, onClose, onWeaponChanged) {
         msg = m
         if (ok) inv.remove(id)
       } else { msg = 'Нельзя использовать' }
-      combatLog.add(msg)
+      combatLog.add(msg, 'system')
       showInventory(player, combatLog, onClose, onWeaponChanged)
     }
   }
