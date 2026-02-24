@@ -28,9 +28,11 @@ export class Input {
       this._rawMouseX += e.movementX
       this._rawMouseY += e.movementY
     })
-    document.addEventListener('mousedown', e => {
-      if (e.button === 0) this.lmb = true
-    })
+    if (!isMobile) {
+      document.addEventListener('mousedown', e => {
+        if (e.button === 0) this.lmb = true
+      })
+    }
 
     if (!isMobile) {
       document.addEventListener('pointerlockchange', () => {
