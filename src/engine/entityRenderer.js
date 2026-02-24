@@ -122,13 +122,10 @@ export function updateEnemyMesh(enemy, getHeight, dt = 0, isHostile = false) {
     const headingRad = enemy.heading * Math.PI / 180
     enemy.mesh.rotation.y = Math.PI - headingRad
 
-    // Красная подсветка для враждебных/агрессивных
-    const shouldBeRed = isHostile || enemy.state === 'chase'
-    if (ud.allMats && shouldBeRed !== ud.isRedTinted) {
-      for (const mat of ud.allMats) {
-        mat.emissive = shouldBeRed ? _redEmissive : _noEmissive
-      }
-      ud.isRedTinted = shouldBeRed
+    // Снять красную подсветку если осталась (устаревшая)
+    if (ud.isRedTinted && ud.allMats) {
+      for (const mat of ud.allMats) mat.emissive = _noEmissive
+      ud.isRedTinted = false
     }
 
     // Анимация ходьбы

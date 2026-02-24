@@ -10,50 +10,14 @@
  */
 import * as THREE from 'three'
 import { SKY_COLORS, getSkyColorsAt, getFogAt, rand, randInt } from '../game/constants.js'
+import {
+  MAIN_ROAD, ROAD_WIDTH, distToPath,
+  GORGE, RIVER_PATH, RIVER_WIDTH,
+  BRIDGES, SETTLEMENTS, DARK_MOUNTAIN,
+  TOWN_BUILDINGS, TOWN_COLORS, TOWN_ROOF_COLOR, TOWN_RIDGE_COLOR,
+} from '../game/geodata.js'
 
 const SIZE = 700, SEGMENTS = 100, HALF = SIZE / 2, STEP = SIZE / SEGMENTS
-
-// ---- Главная дорога, ущелье, река ----
-//
-// ГЕОГРАФИЯ:
-//   Эльфы(-250,-250) ---[дорога]---> Форт(20,20) ---[дорога]---> Дворец(230,230)
-//   Дорога идёт по диагонали x≈y, слегка огибая горный форт.
-//
-//   УЩЕЛЬЕ — поперёк дороги, на полпути эльфы↔форт (около -115,-115).
-//            Направление ущелья: перпендикулярно дороге = (1,-1).
-//
-//   РЕКА   — поперёк дороги, на полпути форт↔дворец (около 145,145).
-//            Направление реки: перпендикулярно дороге = (1,-1).
-
-// Главная дорога: эльфы → форт → дворец (чуть петляет, огибает форт с юга)
-const MAIN_ROAD = [
-  [-250, -250], [-210, -215], [-170, -175], [-130, -128],
-  [-115, -115], // мост через ущелье
-  [-90, -95], [-50, -45],
-  // Кольцевая дорога вокруг Горы Тьмы (dist≥55 от центра (20,20))
-  [-35, -15], [-40, 20], [-30, 55], [5, 80], [50, 70], [75, 45],
-  [75, 80], [110, 115],
-  [145, 145], // мост через реку
-  [180, 178], [205, 205], [230, 205],
-]
-
-/** Расстояние от точки до ломаной */
-function distToPath(x, y, path) {
-  let minD = Infinity
-  for (let i = 0; i < path.length - 1; i++) {
-    const [ax, ay] = path[i], [bx, by] = path[i + 1]
-    const dx = bx - ax, dy = by - ay
-    const len2 = dx * dx + dy * dy
-    let t = len2 > 0 ? ((x - ax) * dx + (y - ay) * dy) / len2 : 0
-    t = Math.max(0, Math.min(1, t))
-    const px = ax + t * dx, py = ay + t * dy
-    const d = Math.sqrt((x - px) ** 2 + (y - py) ** 2)
-    if (d < minD) minD = d
-  }
-  return minD
-}
-
-const ROAD_WIDTH = 8
 
 function roadInfluence(x, y) {
   const d = distToPath(x, y, MAIN_ROAD)
@@ -61,11 +25,10 @@ function roadInfluence(x, y) {
   return 0
 }
 
-// Ущелье: перпендикулярно дороге через (-115,-115), направление (1,-1)
-// От гор до гор (до края карты ~350, центр ущелья на -115)
-const GORGE_P1 = [-115 - 220, -115 + 220] // (-335, 105) — до гор NW
-const GORGE_P2 = [-115 + 220, -115 - 220] // (105, -335) — до гор SE
-const GORGE_WIDTH = 18, GORGE_DEPTH = 45
+// Ущелье (из geodata)
+const GORGE_P1 = GORGE.p1
+const GORGE_P2 = GORGE.p2
+const GORGE_WIDTH = GORGE.width, GORGE_DEPTH = GORGE.depth
 
 function _distToSegment(x, y, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay
@@ -81,22 +44,7 @@ function gorgeInfluence(x, y) {
   return 0
 }
 
-// Река: перпендикулярно дороге через (145,145), направление (1,-1), петляет
-// Концы уходят к горам и теряются между скал (не поднимаются вверх)
-const RIVER_PATH = [
-  [145 - 150, 145 + 150], // (-5, 295) — исток в горах NW
-  [145 - 120, 145 + 125], // (25, 270)
-  [145 - 90, 145 + 95],   // (55, 240)
-  [145 - 60, 145 + 65],   // (85, 210)
-  [145 - 30, 145 + 35],   // (115, 180)
-  [145, 145],              // центр (мост)
-  [145 + 35, 145 - 30],   // (180, 115)
-  [145 + 65, 145 - 60],   // (210, 85)
-  [145 + 95, 145 - 90],   // (240, 55)
-  [145 + 125, 145 - 120], // (270, 25)
-  [145 + 150, 145 - 150], // (295, -5) — устье в горах SE
-]
-const RIVER_WIDTH = 10
+// Река и ширина — из geodata
 
 export function riverInfluence(x, y) {
   if (nearBridge(x, y)) return 0 // Мост перекрывает реку
@@ -110,18 +58,16 @@ export function gorgeInfluenceAt(x, y) {
   return gorgeInfluence(x, y)
 }
 
-// Мосты: на пересечении дороги с ущельем/рекой
-export const GORGE_BRIDGE_POS = { x: -115, y: -115 }
-export const RIVER_BRIDGE_POS = { x: 145, y: 145 }
+// Мосты (из geodata, реэкспорт для обратной совместимости)
+export const GORGE_BRIDGE_POS = BRIDGES.gorge.pos
+export const RIVER_BRIDGE_POS = BRIDGES.river.pos
 
 /** Проверить, находится ли точка на мосту (вдоль диагональной дороги).
  *  Мост: прямоугольник вдоль направления (1,1), шириной bridgeW, длиной bridgeL.
  *  Проецируем на ось дороги и перпендикуляр. */
 function nearBridge(x, y) {
-  // halfAlong = вдоль дороги, halfAcross = поперёк
-  // Gorge bridge: len=48, deckW=10
-  // River bridge: len=34, deckW=8
-  return onBridge(x, y, GORGE_BRIDGE_POS, 36, 9) || onBridge(x, y, RIVER_BRIDGE_POS, 26, 8)
+  return onBridge(x, y, BRIDGES.gorge.pos, BRIDGES.gorge.halfAlong, BRIDGES.gorge.halfAcross) ||
+         onBridge(x, y, BRIDGES.river.pos, BRIDGES.river.halfAlong, BRIDGES.river.halfAcross)
 }
 
 function onBridge(x, y, bridge, halfAlong, halfAcross) {
@@ -134,9 +80,8 @@ function onBridge(x, y, bridge, halfAlong, halfAcross) {
 
 /** Проверка "стоит ли на проходимой поверхности моста" — для heightAt */
 function onBridgeSurface(x, y) {
-  // Покрывает всю визуальную длину моста + запас
-  if (onBridge(x, y, GORGE_BRIDGE_POS, 36, 9)) return 'gorge'
-  if (onBridge(x, y, RIVER_BRIDGE_POS, 26, 8)) return 'river'
+  if (onBridge(x, y, BRIDGES.gorge.pos, BRIDGES.gorge.halfAlong, BRIDGES.gorge.halfAcross)) return 'gorge'
+  if (onBridge(x, y, BRIDGES.river.pos, BRIDGES.river.halfAlong, BRIDGES.river.halfAcross)) return 'river'
   return null
 }
 
@@ -144,8 +89,8 @@ function onBridgeSurface(x, y) {
 export function clampBridgeRailings(x, y, radius) {
   const INV_SQRT2 = 1 / Math.SQRT2
   for (const [bridge, halfAlong, halfAcross] of [
-    [GORGE_BRIDGE_POS, 24, 10 / 2],  // gBridgeLen=48 → half=24, gDeckW=10 → halfWidth=5
-    [RIVER_BRIDGE_POS, 17, 8 / 2],   // rBridgeLen=34 → half=17, rDeckW=8  → halfWidth=4
+    [BRIDGES.gorge.pos, BRIDGES.gorge.railHalfAlong, BRIDGES.gorge.railHalfAcross],
+    [BRIDGES.river.pos, BRIDGES.river.railHalfAlong, BRIDGES.river.railHalfAcross],
   ]) {
     const dx = x - bridge.x, dy = y - bridge.y
     const along = (dx + dy) * INV_SQRT2
@@ -178,8 +123,9 @@ function _perimeterMountains(x, y) {
   if (edgeDist > 100) return 0
 
   // Подавить горы рядом с поселениями (дворец и эльфы)
-  const palaceDist = Math.sqrt((x - 230) ** 2 + (y - 230) ** 2)
-  const elfDist = Math.sqrt((x + 250) ** 2 + (y + 250) ** 2)
+  const _pc = SETTLEMENTS.palace.center, _ec = SETTLEMENTS.elf_village.center
+  const palaceDist = Math.sqrt((x - _pc[0]) ** 2 + (y - _pc[1]) ** 2)
+  const elfDist = Math.sqrt((x - _ec[0]) ** 2 + (y - _ec[1]) ** 2)
   const settlementSuppress = Math.max(
     palaceDist < 80 ? 1 - palaceDist / 80 : 0,
     elfDist < 80 ? 1 - elfDist / 80 : 0,
@@ -210,14 +156,15 @@ function _baseTerrain(x, y) {
     h = Math.sin(x * 0.012) * Math.cos(y * 0.012) * 1.0
       + Math.sin(x * 0.025 + 1.0) * Math.sin(y * 0.020) * 0.5
   }
-  // Гора Тьмы: центр (20,20), пик ~55, радиус ~45
+  // Гора Тьмы
   {
-    const md = Math.sqrt((x - 20) ** 2 + (y - 20) ** 2)
-    if (md < 45) {
-      const t = 1 - md / 45
+    const mc = DARK_MOUNTAIN.center, mr = DARK_MOUNTAIN.radius, mp = DARK_MOUNTAIN.peakH
+    const md = Math.sqrt((x - mc[0]) ** 2 + (y - mc[1]) ** 2)
+    if (md < mr) {
+      const t = 1 - md / mr
       const peak = t * t * (3 - 2 * t) // smoothstep — крутые склоны
       const noise = Math.sin(x * 0.15) * 0.15 + Math.sin(y * 0.12 + x * 0.08) * 0.1
-      h += peak * (55 + noise * 8)
+      h += peak * (mp + noise * 8)
     }
   }
   h += _perimeterMountains(x, y)
@@ -441,17 +388,16 @@ export function buildBuildings(parent, getHeight) {
   }
 
   // === Деревня эльфов ===
-  // Дома подальше от дороги (дорога идёт от (-250,-250) к (-210,-215))
-  const elfPositions = [[-270, -265], [-230, -270], [-265, -225], [-245, -215], [-250, -280], [-218, -260], [-280, -245]]
-  for (const [ex, ey] of elfPositions) {
+  const elfV = SETTLEMENTS.elf_village
+  for (const [ex, ey] of elfV.houses) {
     const w = rand(5, 9), d = rand(5, 9), h = rand(4, 7)
-    bld(ex, ey, w, d, h, [0.45, 0.3, 0.15])
+    bld(ex, ey, w, d, h, elfV.houseColor)
     // Крыша (скатная)
     const roofGz = gh(ex, ey) - 1 + h
     // Основание крыши
     const roofBase = new THREE.Mesh(
       new THREE.BoxGeometry(w + 1.0, 0.3, d + 1.0),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.3, 0.15, 0.05) })
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(...elfV.roofColor) })
     )
     roofBase.position.copy(toThree(ex, ey, roofGz + 0.15))
     parent.add(roofBase)
@@ -461,7 +407,7 @@ export function buildBuildings(parent, getHeight) {
       if (sw < 1 || sd < 1) break
       const step = new THREE.Mesh(
         new THREE.BoxGeometry(sw, 0.6, sd),
-        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.3 - s * 0.03, 0.15 - s * 0.02, 0.05) })
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(elfV.roofColor[0] - s * 0.03, elfV.roofColor[1] - s * 0.02, elfV.roofColor[2]) })
       )
       step.position.copy(toThree(ex, ey, roofGz + 0.6 + s * 0.6))
       parent.add(step)
@@ -470,27 +416,29 @@ export function buildBuildings(parent, getHeight) {
     const doorGz = gh(ex, ey) - 1
     const door = new THREE.Mesh(
       new THREE.BoxGeometry(1.0, 2.2, 0.12),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.25, 0.12, 0.04) })
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(...elfV.doorColor) })
     )
     door.position.copy(toThree(ex, ey + d / 2, doorGz + 1.1))
     parent.add(door)
   }
 
   // === Дворец Императора (детализированный) ===
-  const pcx = 230, pcy = 230
+  const p = SETTLEMENTS.palace
+  const pcx = p.center[0], pcy = p.center[1]
+  const pOff = p.towerOffset
 
   // Основное здание
-  bld(pcx, pcy, 28, 28, 16, [0.88, 0.86, 0.78])
+  bld(pcx, pcy, p.mainW, p.mainD, p.mainH, p.mainColor)
 
   // Второй этаж (чуть меньше)
-  makeBuilding(parent, pcx, pcy, 22, 22, 8, [0.90, 0.88, 0.80], gh)
+  makeBuilding(parent, pcx, pcy, p.floor2W, p.floor2D, p.floor2H, p.floor2Color, gh)
 
   // Угловые башни — высокие с зубцами
-  for (const [dx, dy] of [[-16, -16], [16, -16], [-16, 16], [16, 16]]) {
+  for (const [dx, dy] of [[-pOff, -pOff], [pOff, -pOff], [-pOff, pOff], [pOff, pOff]]) {
     const tx = pcx + dx, ty = pcy + dy
-    bld(tx, ty, 7, 7, 32, [0.92, 0.90, 0.82])
+    bld(tx, ty, p.towerW, p.towerD, p.towerH, p.towerColor)
     // Зубцы на башнях
-    const towerGz = gh(tx, ty) - 1 + 32
+    const towerGz = gh(tx, ty) - 1 + p.towerH
     for (const [bx, by] of [[-2.5, -2.5], [2.5, -2.5], [-2.5, 2.5], [2.5, 2.5]]) {
       const battlement = new THREE.Mesh(
         new THREE.BoxGeometry(2.0, 3.0, 2.0),
@@ -505,7 +453,7 @@ export function buildBuildings(parent, getHeight) {
       if (sz < 1) break
       const roofPiece = new THREE.Mesh(
         new THREE.BoxGeometry(sz, 1.2, sz),
-        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.18, 0.22, 0.52) })
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(...p.towerRoofColor) })
       )
       roofPiece.position.copy(toThree(tx, ty, towerGz + 3.5 + s * 1.2))
       parent.add(roofPiece)
@@ -513,15 +461,14 @@ export function buildBuildings(parent, getHeight) {
   }
 
   // Стены дворца (между башнями)
-  const wallH = 12
   const wallPositions = [
-    [pcx - 16, pcy, 2.5, 30, wallH], // Левая стена
-    [pcx + 16, pcy, 2.5, 30, wallH], // Правая стена
-    [pcx, pcy - 16, 30, 2.5, wallH], // Нижняя стена
-    [pcx, pcy + 16, 30, 2.5, wallH], // Верхняя стена
+    [pcx - p.wallOffset, pcy, p.wallThickness, p.wallSpan, p.wallH],
+    [pcx + p.wallOffset, pcy, p.wallThickness, p.wallSpan, p.wallH],
+    [pcx, pcy - p.wallOffset, p.wallSpan, p.wallThickness, p.wallH],
+    [pcx, pcy + p.wallOffset, p.wallSpan, p.wallThickness, p.wallH],
   ]
   for (const [wx, wy, ww, wd, wh] of wallPositions) {
-    makeBuilding(parent, wx, wy, ww, wd, wh, [0.82, 0.80, 0.72], gh)
+    makeBuilding(parent, wx, wy, ww, wd, wh, p.wallColor, gh)
     _buildingBoxes.push({ cx: wx, cy: wy, hw: ww / 2 + 0.5, hd: wd / 2 + 0.5 })
     // Зубцы на стенах
     const wallGz = gh(wx, wy) - 1 + wh
@@ -532,7 +479,7 @@ export function buildBuildings(parent, getHeight) {
       const by2 = wd > ww ? t * (wd - 2) : 0
       const batt = new THREE.Mesh(
         new THREE.BoxGeometry(1.8, 2.0, 1.8),
-        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.85, 0.83, 0.75) })
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(...p.wallBattlementColor) })
       )
       batt.position.copy(toThree(wx + bx2, wy + by2, wallGz + 1.0))
       parent.add(batt)
@@ -540,24 +487,24 @@ export function buildBuildings(parent, getHeight) {
   }
 
   // Ворота дворца (пустая арка — просто тёмный блок в стене)
-  const gateGz = gh(pcx, pcy - 16) - 1
+  const gateGz = gh(pcx, pcy - p.wallOffset) - 1
   const gate = new THREE.Mesh(
-    new THREE.BoxGeometry(5.0, 6.0, 3.0),
-    new THREE.MeshLambertMaterial({ color: new THREE.Color(0.15, 0.12, 0.08) })
+    new THREE.BoxGeometry(p.gateW, p.gateH, p.gateD),
+    new THREE.MeshLambertMaterial({ color: new THREE.Color(...p.gateColor) })
   )
-  gate.position.copy(toThree(pcx, pcy - 16, gateGz + 3.0))
+  gate.position.copy(toThree(pcx, pcy - p.wallOffset, gateGz + p.gateH / 2))
   parent.add(gate)
 
   // Центральная башня (донжон)
-  bld(pcx, pcy, 10, 10, 38, [0.94, 0.92, 0.85])
-  const donjonGz = gh(pcx, pcy) - 1 + 38
+  bld(pcx, pcy, p.donjonW, p.donjonD, p.donjonH, p.donjonColor)
+  const donjonGz = gh(pcx, pcy) - 1 + p.donjonH
   // Шпиль
   for (let s = 0; s < 5; s++) {
     const sz = 8.0 - s * 1.6
     if (sz < 1) break
     const spire = new THREE.Mesh(
       new THREE.BoxGeometry(sz, 1.5, sz),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.15, 0.18, 0.48) })
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(...p.donjonRoofColor) })
     )
     spire.position.copy(toThree(pcx, pcy, donjonGz + 1.5 + s * 1.5))
     parent.add(spire)
@@ -578,20 +525,24 @@ export function buildBuildings(parent, getHeight) {
   banner.position.copy(toThree(pcx, pcy, flagGz + 7.0))
   parent.add(banner)
 
-  // === Форт злодея (у подножья Горы Тьмы) ===
-  const fcx = 0, fcy = 0
-  bld(fcx, fcy, 22, 22, 14, [0.28, 0.16, 0.16])
+  // === Форт злодея (обступает Гору Тьмы со всех сторон) ===
+  const f = SETTLEMENTS.fort
+  const fcx = f.center[0], fcy = f.center[1]
+  const fOff = f.towerOffset
+  // Главное здание — у подножья горы (со смещением)
+  const fmx = fcx + f.mainOffset[0], fmy = fcy + f.mainOffset[1]
+  bld(fmx, fmy, f.mainW, f.mainD, f.mainH, f.mainColor)
   // Второй уровень
-  makeBuilding(parent, fcx, fcy, 16, 16, 8, [0.22, 0.12, 0.12], gh)
+  makeBuilding(parent, fmx, fmy, f.floor2W, f.floor2D, f.floor2H, f.floor2Color, gh)
   // Башни
-  for (const [dx, dy] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) {
-    bld(fcx + dx, fcy + dy, 6, 6, 24, [0.22, 0.10, 0.10])
+  for (const [dx, dy] of [[-fOff, -fOff], [fOff, -fOff], [-fOff, fOff], [fOff, fOff]]) {
+    bld(fcx + dx, fcy + dy, f.towerW, f.towerD, f.towerH, f.towerColor)
     // Шипы на башнях
-    const ftGz = gh(fcx + dx, fcy + dy) - 1 + 24
+    const ftGz = gh(fcx + dx, fcy + dy) - 1 + f.towerH
     for (let s = 0; s < 3; s++) {
       const spike = new THREE.Mesh(
         new THREE.BoxGeometry(1.2 - s * 0.4, 1.5, 1.2 - s * 0.4),
-        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.18, 0.08, 0.08) })
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(...f.towerSpikeColor) })
       )
       spike.position.copy(toThree(fcx + dx, fcy + dy, ftGz + 1.5 + s * 1.5))
       parent.add(spike)
@@ -599,67 +550,137 @@ export function buildBuildings(parent, getHeight) {
   }
   // Тёмные стены
   for (const [wx, wy, ww, wd] of [
-    [fcx - 13, fcy, 2, 24], [fcx + 13, fcy, 2, 24],
-    [fcx, fcy - 13, 24, 2], [fcx, fcy + 13, 24, 2],
+    [fcx - fOff, fcy, f.wallThickness, f.wallSpan], [fcx + fOff, fcy, f.wallThickness, f.wallSpan],
+    [fcx, fcy - fOff, f.wallSpan, f.wallThickness], [fcx, fcy + fOff, f.wallSpan, f.wallThickness],
   ]) {
-    makeBuilding(parent, wx, wy, ww, wd, 10, [0.20, 0.10, 0.10], gh)
+    makeBuilding(parent, wx, wy, ww, wd, f.wallH, f.wallColor, gh)
     _buildingBoxes.push({ cx: wx, cy: wy, hw: ww / 2 + 0.5, hd: wd / 2 + 0.5 })
   }
 
-  // === Око Саурона на Горе Тьмы ===
+  // === Гора Тьмы — скалистая модель ===
   {
-    const eyeX = 20, eyeY = 20
-    const mountainH = gh(eyeX, eyeY)
+    const mx = DARK_MOUNTAIN.center[0], my = DARK_MOUNTAIN.center[1]
+    const mountainH = gh(mx, my)
+    const darkRock = (shade) => new THREE.MeshLambertMaterial({
+      color: new THREE.Color(shade, shade * 0.7, shade * 0.6)
+    })
 
-    // Тёмная башня — узкая, от вершины горы вверх
-    const towerH = 30
-    const towerGz = mountainH
-    const tower = new THREE.Mesh(
-      new THREE.BoxGeometry(3, towerH, 3),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.08, 0.04, 0.04) })
-    )
-    tower.position.copy(toThree(eyeX, eyeY, towerGz + towerH / 2))
-    parent.add(tower)
-
-    // Сужение к вершине (ступенчатая пирамида)
-    for (let s = 0; s < 4; s++) {
-      const sz = 2.6 - s * 0.5
-      const piece = new THREE.Mesh(
-        new THREE.BoxGeometry(sz, 2, sz),
-        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.06, 0.02, 0.02) })
+    // Скалистые уступы вокруг вершины (несколько уровней)
+    const ledges = [
+      // [dx, dy, w, d, h, gz_offset, shade]
+      [0, 0, 14, 14, 4, -2, 0.14],          // верхнее плато
+      [-5, 4, 8, 10, 6, -8, 0.12],          // западный уступ
+      [6, -3, 10, 7, 5, -6, 0.13],          // восточный уступ
+      [-3, -7, 12, 6, 4, -10, 0.11],        // южный уступ
+      [4, 8, 7, 9, 5, -7, 0.12],            // северный выступ
+      [-8, -2, 6, 8, 8, -14, 0.10],         // глубокий западный
+      [2, -10, 8, 5, 6, -12, 0.11],         // южный нижний
+      [9, 5, 5, 7, 7, -13, 0.10],           // восточный нижний
+      [-6, 9, 9, 5, 5, -9, 0.12],           // северо-западный
+      [0, 0, 8, 8, 3, 1, 0.15],             // самая верхушка
+    ]
+    for (const [dx, dy, w, d, h, gz, shade] of ledges) {
+      const rock = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        darkRock(shade)
       )
-      piece.position.copy(toThree(eyeX, eyeY, towerGz + towerH + 1 + s * 2))
-      parent.add(piece)
+      rock.position.copy(toThree(mx + dx, my + dy, mountainH + gz + h / 2))
+      // Слегка повернуть для естественности
+      rock.rotation.y = Math.sin(dx * 3 + dy * 2) * 0.3
+      parent.add(rock)
     }
 
-    // Глаз — сплюснутый эллипс, emissive оранжево-красный
-    const eyeGz = towerGz + towerH + 10
+    // Острые шпили на склонах
+    const spires = [
+      [-12, 0, 2.5, 12], [10, -8, 2, 10], [-4, 13, 2, 9],
+      [14, 6, 1.8, 8], [-10, -12, 2.2, 11], [8, 12, 1.5, 7],
+    ]
+    for (const [dx, dy, sz, h] of spires) {
+      const spireGz = gh(mx + dx, my + dy)
+      const spire = new THREE.Mesh(
+        new THREE.BoxGeometry(sz, h, sz),
+        darkRock(0.08)
+      )
+      spire.position.copy(toThree(mx + dx, my + dy, spireGz + h / 2))
+      spire.rotation.y = dx * 0.2
+      parent.add(spire)
+      // Острие
+      const tip = new THREE.Mesh(
+        new THREE.BoxGeometry(sz * 0.5, h * 0.4, sz * 0.5),
+        darkRock(0.06)
+      )
+      tip.position.copy(toThree(mx + dx, my + dy, spireGz + h + h * 0.2))
+      parent.add(tip)
+    }
+
+    // === Тёмная башня (Барад-дур) ===
+    const towerH = 35
+    const towerGz = mountainH
+
+    // Основание башни — широкое
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(6, 8, 6),
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.06, 0.03, 0.03) })
+    )
+    base.position.copy(toThree(mx, my, towerGz + 4))
+    parent.add(base)
+
+    // Ствол башни — сужается кверху (3 секции)
+    const sections = [
+      [4.5, 12, 0],  [3.5, 10, 12], [2.5, 8, 22],
+    ]
+    for (const [sz, h, gz] of sections) {
+      const sec = new THREE.Mesh(
+        new THREE.BoxGeometry(sz, h, sz),
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.07, 0.035, 0.035) })
+      )
+      sec.position.copy(toThree(mx, my, towerGz + 8 + gz + h / 2))
+      parent.add(sec)
+    }
+
+    // Корона башни — зубцы
+    const crownGz = towerGz + 8 + 30
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * Math.PI * 2 + Math.PI / 4
+      const cdx = Math.cos(ang) * 2, cdy = Math.sin(ang) * 2
+      const prong = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 4, 1.2),
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(0.05, 0.02, 0.02) })
+      )
+      prong.position.copy(toThree(mx + cdx, my + cdy, crownGz + 2))
+      parent.add(prong)
+    }
+
+    // === Глаз — смотрит в сторону дворца и эльфов ===
+    const eyeGz = crownGz + 5
+    const eyeGroup = new THREE.Group()
+    eyeGroup.position.copy(toThree(mx, my, eyeGz))
+    eyeGroup.rotation.y = -Math.PI / 4 // NE-SW
+
     const eyeMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 7, 2),
+      new THREE.BoxGeometry(8, 7, 2),
       new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.35, 0.0) })
     )
-    eyeMesh.position.copy(toThree(eyeX, eyeY, eyeGz))
-    parent.add(eyeMesh)
+    eyeGroup.add(eyeMesh)
 
-    // Зрачок — вертикальная чёрная полоска
+    // Зрачок
     const pupil = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 5, 2.1),
+      new THREE.BoxGeometry(0.8, 5, 2.2),
       new THREE.MeshBasicMaterial({ color: new THREE.Color(0.0, 0.0, 0.0) })
     )
-    pupil.position.copy(toThree(eyeX, eyeY, eyeGz))
-    parent.add(pupil)
+    eyeGroup.add(pupil)
 
-    // Свечение вокруг глаза (полупрозрачный ореол)
+    // Свечение
     const glow = new THREE.Mesh(
-      new THREE.BoxGeometry(8, 10, 3),
+      new THREE.BoxGeometry(12, 10, 3),
       new THREE.MeshBasicMaterial({
         color: new THREE.Color(1.0, 0.2, 0.0),
         transparent: true,
         opacity: 0.3,
       })
     )
-    glow.position.copy(toThree(eyeX, eyeY, eyeGz))
-    parent.add(glow)
+    eyeGroup.add(glow)
+    parent.add(eyeGroup)
   }
 
   // === Деревянные мосты (диагональные — вдоль дороги, поперёк ущелья/реки) ===
@@ -671,7 +692,7 @@ export function buildBuildings(parent, getHeight) {
     const bridgeAngle = Math.PI / 4
 
     // --- Мост через ущелье ---
-    const gBx = GORGE_BRIDGE_POS.x, gBy = GORGE_BRIDGE_POS.y
+    const gBx = BRIDGES.gorge.pos.x, gBy = BRIDGES.gorge.pos.y
     const gBridgeH = gh(gBx, gBy) - 0.15 // чуть ниже чтобы настил был вровень
     const gGroup = new THREE.Group()
     gGroup.position.copy(toThree(gBx, gBy, gBridgeH))
@@ -684,8 +705,8 @@ export function buildBuildings(parent, getHeight) {
     // Мост: local X = длина моста (идём вдоль дороги), local Z = ширина
     // После rotation.y = PI/4, local X → game (1,1) = вдоль дороги
     // Ущелье шириной 18 перпендикулярно дороге → мост длиной 28 чтобы перекрыть
-    const gBridgeLen = 48 // длина моста вдоль дороги (перекрывает ущелье width=18 + большой запас)
-    const gDeckW = 10     // ширина дорожки
+    const gBridgeLen = BRIDGES.gorge.meshLength
+    const gDeckW = BRIDGES.gorge.deckWidth
 
     // Продольные брёвна (несущие) — вдоль моста (local X)
     for (const dz of [-gDeckW / 2 + 0.5, gDeckW / 2 - 0.5]) {
@@ -739,7 +760,7 @@ export function buildBuildings(parent, getHeight) {
     // Мосты НЕ добавляем в buildingBoxes — по ним можно ходить!
 
     // --- Мост через реку ---
-    const rBx = RIVER_BRIDGE_POS.x, rBy = RIVER_BRIDGE_POS.y
+    const rBx = BRIDGES.river.pos.x, rBy = BRIDGES.river.pos.y
     const rBridgeH = gh(rBx, rBy) - 0.15 // чуть ниже чтобы настил был вровень
     const rGroup = new THREE.Group()
     rGroup.position.copy(toThree(rBx, rBy, rBridgeH))
@@ -750,8 +771,8 @@ export function buildBuildings(parent, getHeight) {
     const ropeMat2 = new THREE.MeshLambertMaterial({ color: new THREE.Color(0.52, 0.40, 0.20) })
 
     // local X = длина моста (вдоль дороги, перекрывает реку), local Z = ширина
-    const rBridgeLen = 34 // длина вдоль дороги (river width=10 + большой запас)
-    const rDeckW = 8      // ширина дорожки
+    const rBridgeLen = BRIDGES.river.meshLength
+    const rDeckW = BRIDGES.river.deckWidth
 
     // Продольные брёвна (вдоль моста, local X)
     for (const dz of [-rDeckW / 2 + 0.5, rDeckW / 2 - 0.5]) {
@@ -789,37 +810,25 @@ export function buildBuildings(parent, getHeight) {
   }
 
   // === Людской город ===
-  // Дома расставлены ОТ дороги (дорога проходит через кольцо вокруг горы)
-  // Координаты проблемных домов сдвинуты от дороги к юго-востоку
-  const townBuildings = [
-    [52, -18, 8, 7, 6], [-70, -45, 7, 9, 5], [58, 12, 6, 6, 7],
-    [-65, -15, 10, 8, 5], [-70, 5, 7, 7, 8], [-18, -55, 9, 6, 4],
-    [18, -40, 8, 10, 6], [-60, -50, 6, 8, 5], [55, -28, 7, 7, 6],
-    [-55, 70, 8, 6, 5],
-  ]
-  const townColors = [
-    [0.80, 0.75, 0.55], [0.72, 0.68, 0.52], [0.85, 0.78, 0.58],
-    [0.75, 0.72, 0.56], [0.82, 0.76, 0.60],
-  ]
-  for (let i = 0; i < townBuildings.length; i++) {
-    const [x, y, w, d, h] = townBuildings[i]
+  for (let i = 0; i < TOWN_BUILDINGS.length; i++) {
+    const { x, y, w, d, h } = TOWN_BUILDINGS[i]
     // Проверка: не строить на дороге
     const roadDist = distToPath(x, y, MAIN_ROAD)
     if (roadDist < ROAD_WIDTH + Math.max(w, d) / 2 + 4) continue
-    const col = townColors[i % townColors.length]
+    const col = TOWN_COLORS[i % TOWN_COLORS.length]
     bld(x, y, w, d, h, col)
     // Крыша
     const roofGz = gh(x, y) - 1 + h
     const roofMesh = new THREE.Mesh(
       new THREE.BoxGeometry(w + 0.8, 0.5, d + 0.8),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.55, 0.25, 0.12) })
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(...TOWN_ROOF_COLOR) })
     )
     roofMesh.position.copy(toThree(x, y, roofGz + 0.25))
     parent.add(roofMesh)
     // Ступенчатый конёк
     const ridge = new THREE.Mesh(
       new THREE.BoxGeometry(w * 0.5, 1.0, d + 0.5),
-      new THREE.MeshLambertMaterial({ color: new THREE.Color(0.48, 0.20, 0.08) })
+      new THREE.MeshLambertMaterial({ color: new THREE.Color(...TOWN_RIDGE_COLOR) })
     )
     ridge.position.copy(toThree(x, y, roofGz + 1.0))
     parent.add(ridge)
@@ -877,7 +886,8 @@ export function buildWater(parent, getHeight) {
   const positions = new Float32Array(vertCount * 3)
 
   // Вычислить базовую высоту воды в центре реки (без гор)
-  const centerBank = _baseTerrain(145, 145) - _perimeterMountains(145, 145)
+  const rbc = BRIDGES.river.pos
+  const centerBank = _baseTerrain(rbc.x, rbc.y) - _perimeterMountains(rbc.x, rbc.y)
   const baseWaterH = centerBank - 2.0
 
   for (let i = 0; i < smoothPath.length; i++) {
@@ -1081,7 +1091,7 @@ export function buildForest(parent, getHeight) {
   // Густой лес у эльфов (min_radius=35 от спавна, больше деревьев)
   for (let i = 0; i < 500; i++) {
     const a = rand(0, Math.PI * 2), r = rand(35, 160)
-    const x = -250 + Math.cos(a) * r, y = -250 + Math.sin(a) * r
+    const x = SETTLEMENTS.elf_village.center[0] + Math.cos(a) * r, y = SETTLEMENTS.elf_village.center[1] + Math.sin(a) * r
     if (tooCloseToRoad(x, y)) continue
     // Не спавнить в ущелье
     if (gorgeInfluence(x, y) > 0.3) continue
@@ -1095,7 +1105,7 @@ export function buildForest(parent, getHeight) {
     const x = Math.cos(a) * r, y = Math.sin(a) * r
     if (tooCloseToRoad(x, y) || gorgeInfluence(x, y) > 0.1) continue
     // Не спавнить на склоне Горы Тьмы
-    if (Math.sqrt((x - 20) ** 2 + (y - 20) ** 2) < 50) continue
+    if (Math.sqrt((x - DARK_MOUNTAIN.center[0]) ** 2 + (y - DARK_MOUNTAIN.center[1]) ** 2) < DARK_MOUNTAIN.radius + 5) continue
     const types = ['oak', 'pine', 'dead']
     trees.push(makeTree(parent, x, y, getHeight, types[Math.floor(Math.random() * 3)]))
   }
@@ -1103,7 +1113,7 @@ export function buildForest(parent, getHeight) {
   // Мёртвые деревья у злодея (вокруг горы, не на склоне)
   for (let i = 0; i < 40; i++) {
     const a = rand(0, Math.PI * 2), r = rand(50, 90)
-    const x = 20 + Math.cos(a) * r, y = 20 + Math.sin(a) * r
+    const x = DARK_MOUNTAIN.center[0] + Math.cos(a) * r, y = DARK_MOUNTAIN.center[1] + Math.sin(a) * r
     if (tooCloseToRoad(x, y) || gorgeInfluence(x, y) > 0.1) continue
     const type = Math.random() < 0.7 ? 'dead' : 'pine'
     trees.push(makeTree(parent, x, y, getHeight, type))

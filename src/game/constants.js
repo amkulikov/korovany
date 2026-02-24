@@ -3,6 +3,10 @@
  *
  * "Здраствуйте. Я, Кирилл. Хотел бы чтобы вы сделали игру, 3Д-экшон..."
  */
+import { MAIN_ROAD, SETTLEMENTS } from './geodata.js'
+
+// Реэкспорт дороги для game-модулей (korovan.js и т.д.)
+export { MAIN_ROAD as MAIN_ROAD_WAYPOINTS } from './geodata.js'
 
 // ---- утилиты ----
 export const rand = (a, b) => a + Math.random() * (b - a)
@@ -147,7 +151,7 @@ export const FACTIONS = {
     name: 'Лесные эльфы',
     desc: 'Живут в густом лесу. Быстрые и ловкие.\nЗащищай лес, грабь корованы, отражай набеги.',
     zone: 'elf_zone',
-    startPos: [-250, -250, 5],
+    startPos: [...SETTLEMENTS.elf_village.spawnPos, 5],
     color: [0.25, 0.40, 0.20],
     enemies: ['guards', 'villain'],
     allies: [],
@@ -163,7 +167,7 @@ export const FACTIONS = {
     name: 'Охрана дворца',
     desc: 'Элитные солдаты императора. Сильные и дисциплинированные.\nЗащищай дворец, уничтожай шпионов, ходи в рейды.',
     zone: 'palace_zone',
-    startPos: [230, 208, 5],
+    startPos: [...SETTLEMENTS.palace.spawnPos, 5],
     color: [0.15, 0.15, 0.8],
     enemies: ['villain', 'elves'],
     allies: ['humans'],
@@ -179,7 +183,7 @@ export const FACTIONS = {
     name: 'Тёмный Лорд',
     desc: 'Могущественный злодей в горном форту. Командир армии.\nСобирай войска, шли шпионов, захвати трон!',
     zone: 'villain_zone',
-    startPos: [-20, -20, 5],
+    startPos: [...SETTLEMENTS.fort.spawnPos, 5],
     color: [0.7, 0.05, 0.05],
     enemies: ['guards'],
     allies: [],
@@ -241,19 +245,19 @@ export const ZONES = {
     marketItems: Object.keys(ITEMS),
   },
   palace_zone: {
-    name: 'Земли Императора', center: [240, 240], radius: 150,
+    name: 'Земли Императора', center: SETTLEMENTS.palace.center, radius: SETTLEMENTS.palace.zoneRadius,
     color: [0.5, 0.5, 0.9],
     hasMarket: true,
     marketItems: ['sword', 'axe', 'chain_mail', 'plate_armor', 'healing_potion', 'bandage'],
   },
   elf_zone: {
-    name: 'Эльфийский лес', center: [-280, -280], radius: 150,
+    name: 'Эльфийский лес', center: SETTLEMENTS.elf_village.center, radius: SETTLEMENTS.elf_village.zoneRadius,
     color: [0.1, 0.5, 0.1],
     hasMarket: true,
     marketItems: ['elven_blade', 'elven_armor', 'bow', 'healing_potion', 'antidote', 'furs', 'timber'],
   },
   villain_zone: {
-    name: 'Горы Тьмы', center: [0, 0], radius: 130,
+    name: 'Горы Тьмы', center: SETTLEMENTS.fort.center, radius: SETTLEMENTS.fort.zoneRadius,
     color: [0.3, 0.1, 0.1],
     hasMarket: true,
     marketItems: ['dark_sword', 'dark_armor', 'strong_potion', 'iron_ore', 'gems'],
@@ -272,29 +276,21 @@ export const ENEMY_TYPES = {
   neutral_bandit:   { name: 'Разбойник',         faction: 'neutral', hp: 70,  dmg: 12, armor: 3,  agi: 7,  spd: 4,  detectRange: 14, atkRange: 2.5, color: [0.5, 0.35, 0.1], loot: { gold: 25, dagger: 1 } },
 }
 
-// Спаун-данные врагов
-export const ENEMY_SPAWNS = [
-  { type: 'elf_warrior',      cx: -250, cy: -250, count: 4 },
-  { type: 'elf_archer',       cx: -230, cy: -270, count: 3 },
-  { type: 'palace_guard',     cx:  230, cy:  230, count: 5 },
-  { type: 'palace_captain',   cx:  230, cy:  225, count: 1 },
-  { type: 'dark_soldier',     cx:    0, cy:    0, count: 4 },
-  { type: 'dark_spy',         cx:  -10, cy:   -5, count: 2 },
-  { type: 'dark_lord_minion', cx:    5, cy:    5, count: 1 },
-  { type: 'neutral_bandit',   cx:   50, cy:  -50, count: 3 },
-  { type: 'neutral_bandit',   cx:  -50, cy:   50, count: 2 },
-]
+// Спаун-данные врагов (координаты привязаны к центрам поселений)
+const _elf = SETTLEMENTS.elf_village.center
+const _pal = SETTLEMENTS.palace.center
+const _fort = SETTLEMENTS.fort.center
 
-// Главная дорога как массив вейпоинтов (дублируется из worldBuilder для game-модулей)
-export const MAIN_ROAD_WAYPOINTS = [
-  [-250, -250], [-210, -215], [-170, -175], [-130, -128],
-  [-115, -115], // мост через ущелье
-  [-90, -95], [-50, -45],
-  // Кольцевая дорога вокруг Горы Тьмы (dist≥55 от центра (20,20))
-  [-35, -15], [-40, 20], [-30, 55], [5, 80], [50, 70], [75, 45],
-  [75, 80], [110, 115],
-  [145, 145], // мост через реку
-  [180, 178], [205, 205], [230, 205],
+export const ENEMY_SPAWNS = [
+  { type: 'elf_warrior',      cx: _elf[0],      cy: _elf[1],      count: 4 },
+  { type: 'elf_archer',       cx: _elf[0] + 20, cy: _elf[1] - 20, count: 3 },
+  { type: 'palace_guard',     cx: _pal[0],      cy: _pal[1],      count: 5 },
+  { type: 'palace_captain',   cx: _pal[0],      cy: _pal[1] - 5,  count: 1 },
+  { type: 'dark_soldier',     cx: _fort[0],     cy: _fort[1],     count: 4 },
+  { type: 'dark_spy',         cx: _fort[0] - 10, cy: _fort[1] - 5, count: 2 },
+  { type: 'dark_lord_minion', cx: _fort[0] + 5, cy: _fort[1] + 5, count: 1 },
+  { type: 'neutral_bandit',   cx: 50,  cy: -50, count: 3 },
+  { type: 'neutral_bandit',   cx: -50, cy: 50,  count: 2 },
 ]
 
 // Маршруты корованов — индексы вейпоинтов в MAIN_ROAD_WAYPOINTS
@@ -317,10 +313,11 @@ export const SKY_COLORS = {
 
 // Получить интерполированные цвета неба по game-координатам
 export function getSkyColorsAt(x, y) {
-  // Расстояния до центров зон
-  const elfDist = Math.sqrt((x + 280) ** 2 + (y + 280) ** 2)
-  const palaceDist = Math.sqrt((x - 240) ** 2 + (y - 240) ** 2)
-  const villainDist = Math.sqrt(x * x + y * y)
+  // Расстояния до центров зон (из SETTLEMENTS через ZONES)
+  const ec = ZONES.elf_zone.center, pc = ZONES.palace_zone.center, vc = ZONES.villain_zone.center
+  const elfDist = Math.sqrt((x - ec[0]) ** 2 + (y - ec[1]) ** 2)
+  const palaceDist = Math.sqrt((x - pc[0]) ** 2 + (y - pc[1]) ** 2)
+  const villainDist = Math.sqrt((x - vc[0]) ** 2 + (y - vc[1]) ** 2)
 
   // Веса: обратная дистанция с затуханием (чем ближе, тем больше влияние)
   const radius = 200 // радиус полного влияния зоны
@@ -352,9 +349,10 @@ export const FOG_SETTINGS = {
 }
 
 export function getFogAt(x, y) {
-  const elfDist = Math.sqrt((x + 280) ** 2 + (y + 280) ** 2)
-  const palaceDist = Math.sqrt((x - 240) ** 2 + (y - 240) ** 2)
-  const villainDist = Math.sqrt(x * x + y * y)
+  const ec = ZONES.elf_zone.center, pc = ZONES.palace_zone.center, vc = ZONES.villain_zone.center
+  const elfDist = Math.sqrt((x - ec[0]) ** 2 + (y - ec[1]) ** 2)
+  const palaceDist = Math.sqrt((x - pc[0]) ** 2 + (y - pc[1]) ** 2)
+  const villainDist = Math.sqrt((x - vc[0]) ** 2 + (y - vc[1]) ** 2)
   const radius = 200
   const elfW = Math.max(0, 1 - elfDist / radius)
   const palW = Math.max(0, 1 - palaceDist / radius)

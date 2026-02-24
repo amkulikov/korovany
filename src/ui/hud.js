@@ -5,6 +5,11 @@ import * as THREE from 'three'
 import { getZoneAt, ZONES } from '../game/constants.js'
 import { Status } from '../game/body.js'
 import { toThree } from '../engine/worldBuilder.js'
+import {
+  MAIN_ROAD, RIVER_PATH, GORGE, BRIDGES,
+  SETTLEMENTS, TOWN_BUILDINGS, DARK_MOUNTAIN,
+  distToPath, RIVER_WIDTH,
+} from '../game/geodata.js'
 
 const $ = id => document.getElementById(id)
 
@@ -46,35 +51,9 @@ export class HUD {
     const data = imageData.data
     const HALF = 350, scale = 700 / S
 
-    // Дороги, река, ущелье — упрощённые копии из worldBuilder
-    // Одна главная дорога: эльфы → форт → дворец
-    const mainRoad = [
-      [-250, -250], [-210, -215], [-170, -175], [-130, -128],
-      [-115, -115], [-90, -95], [-50, -45],
-      [-35, -15], [-40, 20], [-30, 55], [5, 80], [50, 70], [75, 45],
-      [75, 80], [110, 115],
-      [145, 145], [180, 178], [205, 205], [230, 205],
-    ]
-    const roadPaths = [mainRoad]
-    // Река: перпендикулярно дороге через (145,145), направление (1,-1)
-    const riverPath = [
-      [65, 225], [95, 200], [125, 170], [145, 145], [170, 125], [200, 95], [225, 65],
-    ]
-    // Ущелье: перпендикулярно дороге через (-115,-115), направление (1,-1)
-    const gorgeP1 = [-215, -15], gorgeP2 = [-15, -215]
-
-    function dToPath(x, y, path) {
-      let m = Infinity
-      for (let i = 0; i < path.length - 1; i++) {
-        const [ax, ay] = path[i], [bx, by] = path[i + 1]
-        const ddx = bx - ax, ddy = by - ay, l2 = ddx * ddx + ddy * ddy
-        let t = l2 > 0 ? ((x - ax) * ddx + (y - ay) * ddy) / l2 : 0
-        t = Math.max(0, Math.min(1, t))
-        const d = Math.sqrt((x - ax - t * ddx) ** 2 + (y - ay - t * ddy) ** 2)
-        if (d < m) m = d
-      }
-      return m
-    }
+    // Данные из geodata (единый источник)
+    const roadPaths = [MAIN_ROAD]
+    const gorgeP1 = GORGE.p1, gorgeP2 = GORGE.p2
 
     for (let py = 0; py < S; py++) {
       for (let px = 0; px < S; px++) {
@@ -93,15 +72,28 @@ export class HUD {
         { const md = Math.sqrt((gx - 20) ** 2 + (gy - 20) ** 2)
           if (md < 45) { const t = 1 - md / 45; h += t * t * (3 - 2 * t) * 55 }
         }
-        // Горы NW
-        const nwD = Math.sqrt((gx + 220) ** 2 + (gy - 220) ** 2)
-        if (nwD < 130) { const f = 1 - nwD / 130; h += f * 25 * (0.5 + 0.5 * Math.sin(gx * 0.04 + gy * 0.03)) + f * f * 15 }
-        // Горы SE
-        const seD = Math.sqrt((gx - 220) ** 2 + (gy + 220) ** 2)
-        if (seD < 130) { const f = 1 - seD / 130; h += f * 22 * (0.5 + 0.5 * Math.cos(gx * 0.035 - gy * 0.04)) + f * f * 12 }
+        // Горная гряда по периметру карты (как в мире)
+        const edgeDist = Math.min(HALF - Math.abs(gx), HALF - Math.abs(gy))
+        if (edgeDist < 100) {
+          // Подавить рядом с дворцом и эльфами
+          const _pc = SETTLEMENTS.palace.center, _ec = SETTLEMENTS.elf_village.center
+          const palD = Math.sqrt((gx - _pc[0]) ** 2 + (gy - _pc[1]) ** 2)
+          const elfD = Math.sqrt((gx - _ec[0]) ** 2 + (gy - _ec[1]) ** 2)
+          const suppress = Math.max(
+            palD < 80 ? 1 - palD / 80 : 0,
+            elfD < 80 ? 1 - elfD / 80 : 0,
+          )
+          if (suppress < 0.95) {
+            const f = 1 - edgeDist / 100
+            const steep = f * f * (3 - 2 * f)
+            const noise = Math.sin(gx * 0.06 + gy * 0.04) * 0.4
+              + Math.sin(gx * 0.12 - gy * 0.08) * 0.25
+            h += (steep * (55 + noise * 25) + f * f * f * 30) * (1 - suppress)
+          }
+        }
 
         // Река и ущелье
-        const riverD = dToPath(gx, gy, riverPath)
+        const riverD = distToPath(gx, gy, RIVER_PATH)
         const gorgeDx = gorgeP2[0] - gorgeP1[0], gorgeDy = gorgeP2[1] - gorgeP1[1]
         const gorgeL2 = gorgeDx * gorgeDx + gorgeDy * gorgeDy
         let gorgeT = gorgeL2 > 0 ? ((gx - gorgeP1[0]) * gorgeDx + (gy - gorgeP1[1]) * gorgeDy) / gorgeL2 : 0
@@ -110,8 +102,8 @@ export class HUD {
 
         // Цвет рельефа
         let r, g, b
-        const isRiver = riverD < 10
-        const isGorge = gorgeD < 18 // GORGE_WIDTH=18
+        const isRiver = riverD < RIVER_WIDTH
+        const isGorge = gorgeD < GORGE.width
 
         if (isRiver && riverD < 7) {
           r = 30; g = 70; b = 130 // Река
@@ -132,7 +124,7 @@ export class HUD {
         // Дороги — более заметные (шире и контрастнее)
         let roadBest = 0
         for (const path of roadPaths) {
-          const d = dToPath(gx, gy, path)
+          const d = distToPath(gx, gy, path)
           if (d < 8) roadBest = Math.max(roadBest, 1 - d / 8)
         }
         if (roadBest > 0.2 && !isRiver && !isGorge) {
@@ -165,13 +157,13 @@ export class HUD {
     // Мосты (диагональные — вдоль дороги)
     ctx.fillStyle = '#8a6a3e'
     ctx.save()
-    const [gbx, gby] = toM(-115, -115)
+    const [gbx, gby] = toM(BRIDGES.gorge.pos.x, BRIDGES.gorge.pos.y)
     ctx.translate(gbx, gby)
     ctx.rotate(-Math.PI / 4) // 45° для диагональной дороги
     ctx.fillRect(-4, -2, 8, 4)
     ctx.restore()
     ctx.save()
-    const [rbx, rby] = toM(145, 145)
+    const [rbx, rby] = toM(BRIDGES.river.pos.x, BRIDGES.river.pos.y)
     ctx.translate(rbx, rby)
     ctx.rotate(-Math.PI / 4)
     ctx.fillRect(-4, -2, 8, 4)
@@ -179,42 +171,70 @@ export class HUD {
 
     // Эльфийская деревня
     ctx.fillStyle = '#5a3a1e'
-    for (const [ex, ey] of [[-270, -265], [-230, -260], [-260, -225], [-235, -230], [-250, -280], [-220, -245], [-280, -245]]) {
+    for (const [ex, ey] of SETTLEMENTS.elf_village.houses) {
       const [mx, my] = toM(ex, ey)
       ctx.fillRect(mx - 2, my - 2, 4, 4)
     }
 
     // Дворец
+    const palC = SETTLEMENTS.palace.center, palOff = SETTLEMENTS.palace.towerOffset
     ctx.fillStyle = '#c8c8b8'
-    const [pcx, pcy] = toM(230, 230)
+    const [pcx, pcy] = toM(palC[0], palC[1])
     ctx.fillRect(pcx - 6, pcy - 6, 12, 12)
     ctx.fillStyle = '#d0d0c0'
-    for (const [dx, dy] of [[-16, -16], [16, -16], [-16, 16], [16, 16]]) {
-      const [tx, ty] = toM(230 + dx, 230 + dy)
+    for (const [dx, dy] of [[-palOff, -palOff], [palOff, -palOff], [-palOff, palOff], [palOff, palOff]]) {
+      const [tx, ty] = toM(palC[0] + dx, palC[1] + dy)
       ctx.fillRect(tx - 2, ty - 2, 4, 4)
     }
 
     // Гора Тьмы (тёмный кружок)
+    const [mtx, mty] = toM(DARK_MOUNTAIN.center[0], DARK_MOUNTAIN.center[1])
     ctx.fillStyle = '#2a1a1a'
-    const [mtx, mty] = toM(20, 20)
     ctx.beginPath()
-    ctx.arc(mtx, mty, 13, 0, Math.PI * 2)
+    ctx.arc(mtx, mty, 11, 0, Math.PI * 2)
     ctx.fill()
 
-    // Око (красная точка на горе)
+    // Форт злодея — стены обступают гору со всех сторон
+    ctx.strokeStyle = '#4a1a1a'
+    ctx.lineWidth = 3
+    // Внешняя стена
+    ctx.beginPath()
+    ctx.arc(mtx, mty, 15, 0, Math.PI * 2)
+    ctx.stroke()
+    // 8 башен равномерно по периметру
+    ctx.fillStyle = '#2a0e0e'
+    for (let a = 0; a < 8; a++) {
+      const ang = a * Math.PI / 4
+      const tx = mtx + Math.cos(ang) * 15
+      const ty = mty + Math.sin(ang) * 15
+      ctx.fillRect(tx - 2, ty - 2, 4, 4)
+    }
+    // Внутренняя стена (ближе к горе)
+    ctx.strokeStyle = '#3a1212'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(mtx, mty, 9, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Око — эллипс вдоль NE-SW (смотрит на дворец и эльфов)
+    ctx.save()
+    ctx.translate(mtx, mty)
+    ctx.rotate(-Math.PI / 4) // NE-SW диагональ
+    // Эллипс глаза
     ctx.fillStyle = '#ff3300'
     ctx.beginPath()
-    ctx.arc(mtx, mty, 2.5, 0, Math.PI * 2)
+    ctx.ellipse(0, 0, 5, 2, 0, 0, Math.PI * 2)
     ctx.fill()
-
-    // Форт злодея (у подножья горы)
-    ctx.fillStyle = '#3a1a1a'
-    const [fx, fy] = toM(0, 0)
-    ctx.fillRect(fx - 5, fy - 5, 10, 10)
+    // Зрачок-щель (вытянут вдоль той же оси)
+    ctx.fillStyle = '#000'
+    ctx.beginPath()
+    ctx.ellipse(0, 0, 2.5, 0.7, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
 
     // Людские дома
     ctx.fillStyle = '#a09060'
-    for (const [x, y] of [[52, -18], [-70, -45], [58, 12], [-65, -15], [-70, 5], [-18, -55], [18, -40], [-60, -50], [55, -28], [-55, 70]]) {
+    for (const { x, y } of TOWN_BUILDINGS) {
       const [mx, my] = toM(x, y)
       ctx.fillRect(mx - 2, my - 2, 3, 3)
     }
