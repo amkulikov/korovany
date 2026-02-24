@@ -49,6 +49,9 @@ export class Korovan {
     // Направление движения (градусы, как у enemy)
     this.heading = 0
 
+    // Логотип на телеге (случайный: ozon или wildberries)
+    this.logoType = Math.random() < 0.5 ? 'ozon' : 'wildberries'
+
     // Для рендерера
     this.mesh = null
   }
@@ -136,6 +139,7 @@ export class Korovan {
       gold: this.gold, goods: { ...this.goods },
       heading: this.heading, underAttack: this.underAttack,
       _currentWP: this._currentWP, _direction: this._direction,
+      logoType: this.logoType,
     }
   }
 
@@ -145,6 +149,7 @@ export class Korovan {
     this.gold = d.gold; this.goods = { ...d.goods }
     this.heading = d.heading; this.underAttack = d.underAttack
     this._currentWP = d._currentWP; this._direction = d._direction
+    if (d.logoType) this.logoType = d.logoType
   }
 
   infoText() {

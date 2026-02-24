@@ -196,6 +196,39 @@ export function updateEnemyAttackAnim(enemy, dt) {
   }
 }
 
+// ---- Логотипы на телегах ----
+
+function createLogoTexture(logoType) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')
+
+  if (logoType === 'ozon') {
+    // Ozon: синий фон, белый текст
+    ctx.fillStyle = '#005BFF'
+    ctx.fillRect(0, 0, 256, 128)
+    ctx.fillStyle = '#FFFFFF'
+    ctx.font = 'bold 72px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('OZON', 128, 64)
+  } else {
+    // Wildberries: фиолетовый фон, белый текст
+    ctx.fillStyle = '#CB11AB'
+    ctx.fillRect(0, 0, 256, 128)
+    ctx.fillStyle = '#FFFFFF'
+    ctx.font = 'bold 64px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('WB', 128, 64)
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
 // ---- Корованы ----
 
 export function createKorovanMesh(korovan) {
@@ -341,6 +374,20 @@ export function createKorovanMesh(korovan) {
   group.add(box(new THREE.BoxGeometry(0.55, 0.30, 0.35), lam(0.64, 0.58, 0.38), 0.3, 0.63, 0.10))
   // Бочка (кубическая, minecraft-стиль)
   group.add(box(new THREE.BoxGeometry(0.40, 0.50, 0.40), lam(0.50, 0.32, 0.14), 0.8, 0.67, -0.30))
+
+  // === Логотип на бортах ===
+  const logoTexture = createLogoTexture(korovan.logoType)
+  const logoMat = new THREE.MeshLambertMaterial({ map: logoTexture })
+  const logoW = 1.2, logoH = 0.40
+  // Правый борт (z+): лого смотрит наружу (+z)
+  const logoRight = new THREE.Mesh(new THREE.PlaneGeometry(logoW, logoH), logoMat)
+  logoRight.position.set(0, 0.77, 0.86)
+  group.add(logoRight)
+  // Левый борт (z-): лого смотрит наружу (-z), повернуть на 180°
+  const logoLeft = new THREE.Mesh(new THREE.PlaneGeometry(logoW, logoH), logoMat)
+  logoLeft.position.set(0, 0.77, -0.86)
+  logoLeft.rotation.y = Math.PI
+  group.add(logoLeft)
 
   // Сохраняем ссылки для анимации
   group.userData = {
