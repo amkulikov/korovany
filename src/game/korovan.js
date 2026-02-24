@@ -2,11 +2,11 @@
  * Корованы.
  * "Можно грабить корованы..."
  *
- * Корован едет по маршруту (вейпоинтам дороги), охраняется стражей.
- * Игрок может подойти и грабить — если победит охрану.
+ * Корован едет по маршруту (вейпоинтам дороги), охраняется 4 NPC-охранниками.
+ * Игрок может бить телегу (150 HP) — при hp=0 корован лутится.
+ * Атака на телегу или любого охранника триггерит всю охрану.
  */
 import { KOROVAN_ROUTES, MAIN_ROAD_WAYPOINTS, ITEMS, rand, randInt } from './constants.js'
-import { resolveAttack } from './combat.js'
 
 export class Korovan {
   constructor(id, difficulty = 1.0) {
@@ -30,13 +30,12 @@ export class Korovan {
 
     this.alive = true
     this.looted = false
-    this.hp = Math.floor(50 * difficulty)
-    this.maxHp = this.hp
-    this.guards = Math.floor(3 * difficulty)
-    this.guardHp = 60
-    this.guardMaxHp = 60
-    this.guardDmg = 12
-    this.guardArmor = 8
+    this.hp = 150
+    this.maxHp = 150
+
+    // Реальные охранники (заполняются при спавне в engine.js)
+    this.guardEnemies = []
+    this.underAttack = false
 
     // Товары
     this.goods = {}
@@ -57,6 +56,17 @@ export class Korovan {
   update(dt) {
     if (!this.alive) return
 
+    // Проверить, можно ли возобновить движение
+    if (this.underAttack) {
+      const allCalm = this.guardEnemies.every(g =>
+        g.state === 'dead' || g.state === 'patrol' || g.state === 'idle'
+      )
+      if (allCalm) this.underAttack = false
+    }
+
+    // Стоять если под атакой
+    if (this.underAttack) return
+
     const target = this._waypoints[this._currentWP + this._direction]
     if (!target) {
       // Достигли конца маршрута — разворот
@@ -70,7 +80,6 @@ export class Korovan {
     const dist = Math.sqrt(dx * dx + dy * dy)
 
     if (dist < 2) {
-      // Достигли вейпоинта — перейти к следующему
       this._currentWP += this._direction
       return
     }
@@ -78,56 +87,54 @@ export class Korovan {
     const move = Math.min(this.speed * dt, dist)
     this.x += (dx / dist) * move
     this.y += (dy / dist) * move
-    // Запоминаем heading как atan2(dx,dy) в градусах
     this.heading = Math.atan2(dx, dy) * 180 / Math.PI
   }
 
   distTo(px, py) { return Math.sqrt((this.x - px) ** 2 + (this.y - py) ** 2) }
 
-  /** Атака игрока по корову. Возвращает { loot, gold, messages } */
-  attack(playerDmg, playerAgi) {
+  /** Тревога — все живые охранники агрятся, телега останавливается */
+  alertGuards() {
+    this.underAttack = true
+    for (const g of this.guardEnemies) {
+      if (g.state !== 'dead') g.state = 'chase'
+    }
+  }
+
+  /** Атака по телеге. Возвращает { damage, loot, gold, messages } */
+  attack(damage) {
     const messages = []
     if (this.looted) return { loot: {}, gold: 0, messages: ['Корован уже ограблен'] }
 
-    if (this.guards > 0) {
-      const r = resolveAttack(playerDmg, playerAgi, this.guardArmor, 5)
-      if (r.hit) {
-        this.guardHp -= r.damage
-        let msg = `Удар по охраннику: ${r.damage} урона`
-        if (r.crit) msg += ' [КРИТ!]'
-        messages.push(msg)
-        if (this.guardHp <= 0) {
-          this.guards--
-          this.guardHp = this.guardMaxHp
-          messages.push(`Охранник убит! Осталось: ${this.guards}`)
-        }
+    this.hp = Math.max(0, this.hp - damage)
+    messages.push(`Удар по телеге: ${damage} урона (${this.hp}/${this.maxHp})`)
+
+    // Тревога охране
+    this.alertGuards()
+
+    if (this.hp <= 0) {
+      this.looted = true
+      this.alive = false
+      messages.push(`Корован разбит! +${this.gold} золота`)
+      for (const [id, qty] of Object.entries(this.goods)) {
+        messages.push(`  + ${ITEMS[id]?.name || id} x${qty}`)
       }
-      if (this.guards > 0) {
-        messages.push(`Охрана атакует в ответ!`)
-        return { loot: {}, gold: 0, messages }
-      }
+      return { loot: { ...this.goods }, gold: this.gold, messages }
     }
 
-    // Все охранники побеждены — грабим!
-    this.looted = true
-    this.alive = false
-    messages.push(`Корован ограблен! +${this.gold} золота`)
-    for (const [id, qty] of Object.entries(this.goods)) {
-      messages.push(`  + ${ITEMS[id]?.name || id} x${qty}`)
-    }
-    return { loot: { ...this.goods }, gold: this.gold, messages }
+    return { loot: {}, gold: 0, messages }
   }
 
-  guardCounterDamage() {
-    if (this.guards <= 0 || this.looted) return 0
-    return (this.guardDmg + randInt(-3, 5)) * Math.max(1, Math.floor(this.guards / 2))
+  /** Количество живых охранников */
+  get aliveGuards() {
+    return this.guardEnemies.filter(g => g.state !== 'dead').length
   }
 
   infoText() {
     const lines = [
       `=== ${this.name} ===`,
       `Маршрут: ${this.routeName}`,
-      `Охрана: ${this.guards} чел. | HP: ${this.guardHp}/${this.guardMaxHp}`,
+      `Телега: ${this.hp}/${this.maxHp} HP`,
+      `Охрана: ${this.aliveGuards} из ${this.guardEnemies.length}`,
       `Товары:`,
     ]
     for (const [id, qty] of Object.entries(this.goods)) {

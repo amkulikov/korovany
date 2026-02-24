@@ -140,7 +140,8 @@ export class Game {
     this.enemies = []
     for (const sp of ENEMY_SPAWNS) {
       for (let i = 0; i < sp.count; i++) {
-        const x = sp.cx + rand(-25, 25), y = sp.cy + rand(-25, 25)
+        const s = sp.spread || 25
+        const x = sp.cx + rand(-s, s), y = sp.cy + rand(-s, s)
         const z = this.getHeight(x, y) + 1.0
         const enemy = new Enemy(sp.type, x, y, z)
         enemy.mesh = createEnemyMesh(enemy)
@@ -149,12 +150,24 @@ export class Game {
       }
     }
 
-    // Корованы
+    // Корованы + реальная охрана
     this.korovans = []
+    const guardOffsets = [[3, 2], [-3, 2], [3, -2], [-3, -2]]
     for (let i = 0; i < 5; i++) {
       const k = new Korovan(i + 1, rand(0.8, 1.5))
       k.mesh = createKorovanMesh(k)
       this.worldGroup.add(k.mesh)
+      // 4 NPC-охранника рядом с телегой
+      for (const [ox, oy] of guardOffsets) {
+        const guard = new Enemy('korovan_guard', k.x + ox, k.y + oy)
+        guard.parentKorovan = k
+        guard.escortOffset = [ox, oy]
+        guard.patrolR = 5
+        guard.mesh = createEnemyMesh(guard)
+        this.worldGroup.add(guard.mesh)
+        this.enemies.push(guard)
+        k.guardEnemies.push(guard)
+      }
       this.korovans.push(k)
     }
 
@@ -568,30 +581,21 @@ export class Game {
 
   _attackKorovan(korovan) {
     const player = this.player
-    const { loot, gold, messages } = korovan.attack(player.attackDamage(), player.agi)
+    const dmg = player.attackDamage()
+    const { loot, gold, messages } = korovan.attack(dmg)
     for (const m of messages) this.combatLog.add(m)
-
-    // Контратака охраны
-    if (korovan.guards > 0) {
-      const counter = korovan.guardCounterDamage()
-      if (counter > 0) {
-        const { actual, messages: dmgMsgs } = player.takeDamage(counter)
-        for (const m of dmgMsgs) this.combatLog.add(`Охрана: ${m}`)
-        this.combatLog.add(`Охрана наносит ${actual} урона!`)
-      }
-      this.hud.showMessage(
-        `Охрана: ${korovan.guards} чел. HP: ${korovan.guardHp}/${korovan.guardMaxHp}`,
-        '#ff8c1a', 2
-      )
-    }
+    player.attackCooldown = 0.8
 
     if (korovan.looted) {
       player.inventory.gold += gold
       for (const [id, qty] of Object.entries(loot)) player.inventory.add(id, qty)
       this.combatLog.add(pick(MEMES.korobanRob))
-      this.hud.showMessage(`Корован ограблен! +${gold} золота`, '#ffd944', 3)
-    } else if (korovan.guards > 0) {
-      if (Math.random() < 0.3) this.combatLog.add(pick(MEMES.korobanFail))
+      this.hud.showMessage(`Корован разбит! +${gold} золота`, '#ffd944', 3)
+    } else {
+      this.hud.showMessage(
+        `Телега: ${korovan.hp}/${korovan.maxHp} HP | Охрана: ${korovan.aliveGuards}`,
+        '#ff8c1a', 2
+      )
     }
   }
 
@@ -608,7 +612,7 @@ export class Game {
     if (nearK) {
       const goods = Object.entries(nearK.goods).slice(0, 3).map(([k, v]) => `${v}×${k}`).join(', ')
       this.hud.showMessage(
-        `[ ${nearK.name} ] ${nearK.routeName}\nОхрана: ${nearK.guards} HP: ${nearK.guardHp}/${nearK.guardMaxHp}\nЗолото: ${nearK.gold} ${goods}\nЛКМ — атаковать`,
+        `[ ${nearK.name} ] ${nearK.routeName}\nТелега: ${nearK.hp}/${nearK.maxHp} HP | Охрана: ${nearK.aliveGuards} чел.\nЗолото: ${nearK.gold} ${goods}\nЛКМ — атаковать`,
         '#ffcc33', 4
       )
       return
@@ -655,13 +659,13 @@ export class Game {
   _quickSave() {
     const [, msg] = saveLoad.saveGame(this.player, 'quicksave')
     this.combatLog.add(msg)
-    this.hud.showMessage('Сохранено!', '#4dff4d', 2)
+    this.hud.showMessage(pick(MEMES.save), '#4dff4d', 2.5)
   }
 
   _quickLoad() {
     const [ok, msg] = saveLoad.loadGame(this.player, 'quicksave')
     this.combatLog.add(msg)
-    if (ok) this.hud.showMessage('Загружено!', '#4dff4d', 2)
+    if (ok) this.hud.showMessage(pick(MEMES.load), '#4dff4d', 2.5)
   }
 
   // ---- Пауза ----

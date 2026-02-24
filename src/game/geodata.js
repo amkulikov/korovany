@@ -70,9 +70,18 @@ export const SETTLEMENTS = {
     get wallSpan() { return this.towerOffset * 2 },
     get wallOffset() { return this.towerOffset },
     wallColor: [0.20, 0.10, 0.10],
+    // Ворота (проход в южной стене)
+    gateWidth: 10,
+    gateColor: [0.12, 0.06, 0.06],
     // Зона
     zoneRadius: 130,
     // Производные
+    /** Позиция главного здания (для спавна NPC вокруг него, не на горе) */
+    get mainPos() {
+      return [this.center[0] + this.mainOffset[0],
+              this.center[1] + this.mainOffset[1]]
+    },
+    /** Спавн игрока — за SW-углом стен */
     get spawnPos() {
       return [this.center[0] - this.wallOffset - 7,
               this.center[1] - this.wallOffset - 7]
@@ -215,9 +224,9 @@ export const RIVER_WIDTH = 10
 // ===================== ЛЮДСКИЕ ДОМА =====================
 
 export const TOWN_BUILDINGS = [
-  { x: 52, y: -18, w: 8, d: 7, h: 6 },
+  { x: 52, y: -35, w: 8, d: 7, h: 6 },
   { x: -70, y: -45, w: 7, d: 9, h: 5 },
-  { x: 58, y: 12, w: 6, d: 6, h: 7 },
+  { x: 70, y: -10, w: 6, d: 6, h: 7 },
   { x: -65, y: -15, w: 10, d: 8, h: 5 },
   { x: -70, y: 5, w: 7, d: 7, h: 8 },
   { x: -18, y: -55, w: 9, d: 6, h: 4 },

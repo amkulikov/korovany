@@ -42,6 +42,10 @@ export class Enemy {
     this.targetX = x; this.targetY = y
     this._pickPatrolTarget()
 
+    // Эскорт корована (null = обычный враг)
+    this.parentKorovan = null
+    this.escortOffset = null
+
     // Для рендерера
     this.mesh = null
   }
@@ -70,10 +74,28 @@ export class Enemy {
   }
 
   _doPatrol(dt) {
+    // Эскорт: следовать за корованом
+    if (this.parentKorovan && this.parentKorovan.alive && this.escortOffset) {
+      this.patrolCx = this.parentKorovan.x + this.escortOffset[0]
+      this.patrolCy = this.parentKorovan.y + this.escortOffset[1]
+
+      // Далеко от телеги → бежать напрямую к своей позиции
+      const toCx = this.patrolCx - this.x, toCy = this.patrolCy - this.y
+      const distToPost = Math.sqrt(toCx * toCx + toCy * toCy)
+      if (distToPost > 8) {
+        const move = this.speed * 1.2 * dt // быстрее телеги чтобы догнать
+        this.x += (toCx / distToPost) * move
+        this.y += (toCy / distToPost) * move
+        this.heading = Math.atan2(toCx, toCy) * 180 / Math.PI
+        return
+      }
+    }
+
     const dx = this.targetX - this.x, dy = this.targetY - this.y
     const dist = Math.sqrt(dx * dx + dy * dy)
     if (dist < 1) { this._pickPatrolTarget(); return }
-    const move = this.speed * 0.5 * dt
+    const spd = this.parentKorovan ? this.speed * 0.7 : this.speed * 0.5
+    const move = spd * dt
     this.x += (dx / dist) * move
     this.y += (dy / dist) * move
     this.heading = Math.atan2(dx, dy) * 180 / Math.PI
@@ -118,6 +140,8 @@ export class Enemy {
       if (this.hp <= 0) { this.die(); return { ...r, killed: true } }
       // Получив урон — всегда агрится (friendly fire → chase)
       if (this.state !== 'dead') this.state = 'chase'
+      // Эскорт: тревога всем охранникам корована
+      if (this.parentKorovan) this.parentKorovan.alertGuards()
     }
     return { ...r, killed: false }
   }

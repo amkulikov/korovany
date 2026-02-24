@@ -97,6 +97,27 @@ export const MEMES = {
     'Охрана не дремлет!',
     'Не так-то просто грабить корованы...',
   ],
+  // Сохранение
+  save: [
+    'Прогресс сохранён! Кирилл одобряет.',
+    'Сейв создан. Можно грабить корованы дальше.',
+    'Сохранено! Типо дагер фол, но лутше.',
+    'F5 — лутшая кнопка в игре.',
+    'Игра сохранена. Не благодарите.',
+    'Сейв записан! Теперь можно умирать спокойно.',
+    'Квиксейв! Олдскулы свело.',
+    'Сохранено. Savescum\'инг — не баг, а фича.',
+    'Прогресс сохранён. Откатиться всегда успеешь.',
+    'Записано! Ctrl+S... то есть F5.',
+  ],
+  // Загрузка
+  load: [
+    'Загружено! Как будто ничего и не было.',
+    'Таймлайн восстановлен. Продолжаем.',
+    'Сейв загружен. Второй шанс!',
+    'Загрузка завершена. Теперь-то получится.',
+    'Квиклоад! Всё по новой.',
+  ],
   // Стартовые приветствия
   startGame: [
     'Здраствуйте. Я, Кирилл. Хотел бы чтобы вы сделали игру...',
@@ -274,21 +295,24 @@ export const ENEMY_TYPES = {
   dark_spy:         { name: 'Шпион',             faction: 'villain', hp: 55,  dmg: 16, armor: 4,  agi: 10, spd: 7,  detectRange: 25, atkRange: 2,   color: [0.2, 0.0, 0.2],  loot: { dagger: 1, gold: 30 } },
   dark_lord_minion: { name: 'Прислужник Лорда',  faction: 'villain', hp: 180, dmg: 26, armor: 14, agi: 8,  spd: 5,  detectRange: 20, atkRange: 2.5, color: [0.6, 0.0, 0.0],  loot: { dark_armor: 1, gold: 50 } },
   neutral_bandit:   { name: 'Разбойник',         faction: 'neutral', hp: 70,  dmg: 12, armor: 3,  agi: 7,  spd: 4,  detectRange: 14, atkRange: 2.5, color: [0.5, 0.35, 0.1], loot: { gold: 25, dagger: 1 } },
+  korovan_guard:    { name: 'Охранник каравана', faction: 'neutral', hp: 80,  dmg: 14, armor: 8,  agi: 6,  spd: 6,  detectRange: 20, atkRange: 2.5, color: [0.55, 0.45, 0.25], loot: { gold: 10 } },
 }
 
 // Спаун-данные врагов (координаты привязаны к центрам поселений)
 const _elf = SETTLEMENTS.elf_village.center
 const _pal = SETTLEMENTS.palace.center
-const _fort = SETTLEMENTS.fort.center
+const _fortSpawn = SETTLEMENTS.fort.spawnPos // за стенами, на ровной земле
+const _fortGate = [SETTLEMENTS.fort.center[0], SETTLEMENTS.fort.center[1] - SETTLEMENTS.fort.wallOffset] // ворота
 
 export const ENEMY_SPAWNS = [
   { type: 'elf_warrior',      cx: _elf[0],      cy: _elf[1],      count: 4 },
   { type: 'elf_archer',       cx: _elf[0] + 20, cy: _elf[1] - 20, count: 3 },
   { type: 'palace_guard',     cx: _pal[0],      cy: _pal[1],      count: 5 },
   { type: 'palace_captain',   cx: _pal[0],      cy: _pal[1] - 5,  count: 1 },
-  { type: 'dark_soldier',     cx: _fort[0],     cy: _fort[1],     count: 4 },
-  { type: 'dark_spy',         cx: _fort[0] - 10, cy: _fort[1] - 5, count: 2 },
-  { type: 'dark_lord_minion', cx: _fort[0] + 5, cy: _fort[1] + 5, count: 1 },
+  { type: 'dark_soldier',     cx: _fortSpawn[0],      cy: _fortSpawn[1],      count: 2, spread: 15 },
+  { type: 'dark_soldier',     cx: _fortGate[0],       cy: _fortGate[1] - 5,   count: 2, spread: 5 },
+  { type: 'dark_spy',         cx: _fortSpawn[0] - 5,  cy: _fortSpawn[1] + 10, count: 2, spread: 12 },
+  { type: 'dark_lord_minion', cx: _fortGate[0],       cy: _fortGate[1] - 3,   count: 1, spread: 3 },
   { type: 'neutral_bandit',   cx: 50,  cy: -50, count: 3 },
   { type: 'neutral_bandit',   cx: -50, cy: 50,  count: 2 },
 ]
@@ -307,7 +331,7 @@ export const KOROVAN_ROUTES = [
 export const SKY_COLORS = {
   elves:   { top: [0.26, 0.55, 0.84], horizon: [0.52, 0.74, 0.65], bg: [0.40, 0.62, 0.85] },
   guards:  { top: [0.26, 0.54, 0.92], horizon: [0.62, 0.82, 0.98], bg: [0.45, 0.65, 0.90] },
-  villain: { top: [0.07, 0.03, 0.03], horizon: [0.20, 0.08, 0.06], bg: [0.12, 0.06, 0.06] },
+  villain: { top: [0.03, 0.01, 0.01], horizon: [0.12, 0.04, 0.02], bg: [0.06, 0.02, 0.02] },
   neutral: { top: [0.30, 0.55, 0.88], horizon: [0.58, 0.78, 0.92], bg: [0.50, 0.68, 0.88] },
 }
 
@@ -323,7 +347,7 @@ export function getSkyColorsAt(x, y) {
   const radius = 200 // радиус полного влияния зоны
   const elfW = Math.max(0, 1 - elfDist / radius)
   const palW = Math.max(0, 1 - palaceDist / radius)
-  const vilW = Math.max(0, 1 - villainDist / (radius * 0.6)) // злодей — меньший радиус
+  const vilW = Math.max(0, 1 - villainDist / (radius * 0.8)) // мрачное небо дальше расползается
   const neuW = Math.max(0.05, 1 - Math.max(elfW, palW, vilW)) // нейтральный — всё остальное
 
   const total = elfW + palW + vilW + neuW
@@ -344,7 +368,7 @@ export function getSkyColorsAt(x, y) {
 export const FOG_SETTINGS = {
   elves:   { color: [0.40, 0.60, 0.50], near: 80, far: 350 },
   guards:  { color: [0.60, 0.75, 0.90], near: 100, far: 450 },
-  villain: { color: [0.10, 0.05, 0.05], near: 40, far: 200 },
+  villain: { color: [0.05, 0.02, 0.02], near: 30, far: 150 },
   neutral: { color: [0.55, 0.68, 0.80], near: 90, far: 400 },
 }
 
@@ -356,7 +380,7 @@ export function getFogAt(x, y) {
   const radius = 200
   const elfW = Math.max(0, 1 - elfDist / radius)
   const palW = Math.max(0, 1 - palaceDist / radius)
-  const vilW = Math.max(0, 1 - villainDist / (radius * 0.6))
+  const vilW = Math.max(0, 1 - villainDist / (radius * 0.8))
   const neuW = Math.max(0.05, 1 - Math.max(elfW, palW, vilW))
   const total = elfW + palW + vilW + neuW
   const we = elfW / total, wp = palW / total, wv = vilW / total, wn = neuW / total

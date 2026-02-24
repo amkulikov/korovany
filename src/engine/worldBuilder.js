@@ -548,13 +548,38 @@ export function buildBuildings(parent, getHeight) {
       parent.add(spike)
     }
   }
-  // Тёмные стены
+  // Тёмные стены (запад, восток, север — сплошные)
   for (const [wx, wy, ww, wd] of [
-    [fcx - fOff, fcy, f.wallThickness, f.wallSpan], [fcx + fOff, fcy, f.wallThickness, f.wallSpan],
-    [fcx, fcy - fOff, f.wallSpan, f.wallThickness], [fcx, fcy + fOff, f.wallSpan, f.wallThickness],
+    [fcx - fOff, fcy, f.wallThickness, f.wallSpan],
+    [fcx + fOff, fcy, f.wallThickness, f.wallSpan],
+    [fcx, fcy + fOff, f.wallSpan, f.wallThickness],
   ]) {
     makeBuilding(parent, wx, wy, ww, wd, f.wallH, f.wallColor, gh)
     _buildingBoxes.push({ cx: wx, cy: wy, hw: ww / 2 + 0.5, hd: wd / 2 + 0.5 })
+  }
+  // Южная стена — два сегмента с воротами посередине
+  {
+    const gateHalf = f.gateWidth / 2
+    const southY = fcy - fOff
+    const segLen = (f.wallSpan - f.gateWidth) / 2
+    // Левый сегмент
+    const lx = fcx - fOff + segLen / 2
+    makeBuilding(parent, lx, southY, segLen, f.wallThickness, f.wallH, f.wallColor, gh)
+    _buildingBoxes.push({ cx: lx, cy: southY, hw: segLen / 2 + 0.5, hd: f.wallThickness / 2 + 0.5 })
+    // Правый сегмент
+    const rx = fcx + fOff - segLen / 2
+    makeBuilding(parent, rx, southY, segLen, f.wallThickness, f.wallH, f.wallColor, gh)
+    _buildingBoxes.push({ cx: rx, cy: southY, hw: segLen / 2 + 0.5, hd: f.wallThickness / 2 + 0.5 })
+    // Столбы ворот
+    for (const gx of [fcx - gateHalf, fcx + gateHalf]) {
+      const post = new THREE.Mesh(
+        new THREE.BoxGeometry(2, f.wallH + 4, 2),
+        new THREE.MeshLambertMaterial({ color: new THREE.Color(...f.gateColor) })
+      )
+      const gz = gh(gx, southY) - 1
+      post.position.copy(toThree(gx, southY, gz + (f.wallH + 4) / 2))
+      parent.add(post)
+    }
   }
 
   // === Гора Тьмы — скалистая модель ===
