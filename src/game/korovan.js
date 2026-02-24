@@ -129,6 +129,24 @@ export class Korovan {
     return this.guardEnemies.filter(g => g.state !== 'dead').length
   }
 
+  toJSON() {
+    return {
+      id: this.id, x: this.x, y: this.y, hp: this.hp,
+      alive: this.alive, looted: this.looted,
+      gold: this.gold, goods: { ...this.goods },
+      heading: this.heading, underAttack: this.underAttack,
+      _currentWP: this._currentWP, _direction: this._direction,
+    }
+  }
+
+  fromJSON(d) {
+    this.x = d.x; this.y = d.y; this.hp = d.hp
+    this.alive = d.alive; this.looted = d.looted
+    this.gold = d.gold; this.goods = { ...d.goods }
+    this.heading = d.heading; this.underAttack = d.underAttack
+    this._currentWP = d._currentWP; this._direction = d._direction
+  }
+
   infoText() {
     const lines = [
       `=== ${this.name} ===`,

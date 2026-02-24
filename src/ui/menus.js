@@ -111,13 +111,22 @@ export function showPause(onResume, onSave, onMainMenu) {
   el.innerHTML = `
     <div class="menu-panel">
       <div class="menu-title">ПАУЗА</div>
+      <div id="pause-toast" style="min-height:24px;margin-bottom:8px"></div>
       <button class="menu-btn" id="btn-resume">Продолжить</button>
       <button class="menu-btn" id="btn-save">Сохранить</button>
       <button class="menu-btn" id="btn-to-menu">Главное меню</button>
     </div>
   `
   el.querySelector('#btn-resume').onclick = () => { hideAll(); onResume() }
-  el.querySelector('#btn-save').onclick = onSave
+  el.querySelector('#btn-save').onclick = () => {
+    onSave()
+    const toast = el.querySelector('#pause-toast')
+    toast.textContent = pick(MEMES.save)
+    toast.style.color = '#4dff4d'
+    toast.style.transition = 'opacity 0.5s'
+    toast.style.opacity = '1'
+    setTimeout(() => { toast.style.opacity = '0' }, 2500)
+  }
   el.querySelector('#btn-to-menu').onclick = () => { hideAll(); onMainMenu() }
 }
 

@@ -113,7 +113,6 @@ export class Game {
     this.combatLog.clear()
 
     this.player = new Player(factionId)
-    if (loadSlot) saveLoad.loadGame(this.player, loadSlot)
 
     // Рендерер
     this.renderer.setupForFaction(factionId)
@@ -169,6 +168,12 @@ export class Game {
         k.guardEnemies.push(guard)
       }
       this.korovans.push(k)
+    }
+
+    // Загрузка — ПОСЛЕ создания врагов и корованов, чтобы восстановить их состояние
+    if (loadSlot) {
+      saveLoad.loadGame(this.player, loadSlot, this.enemies, this.korovans)
+      this._syncWorldAfterLoad()
     }
 
     // Рынок
@@ -657,15 +662,34 @@ export class Game {
   // ---- Сохранение ----
 
   _quickSave() {
-    const [, msg] = saveLoad.saveGame(this.player, 'quicksave')
+    const [, msg] = saveLoad.saveGame(this.player, 'quicksave', this.enemies, this.korovans)
     this.combatLog.add(msg)
     this.hud.showMessage(pick(MEMES.save), '#4dff4d', 2.5)
   }
 
   _quickLoad() {
-    const [ok, msg] = saveLoad.loadGame(this.player, 'quicksave')
+    const [ok, msg] = saveLoad.loadGame(this.player, 'quicksave', this.enemies, this.korovans)
     this.combatLog.add(msg)
-    if (ok) this.hud.showMessage(pick(MEMES.load), '#4dff4d', 2.5)
+    if (ok) {
+      this._syncWorldAfterLoad()
+      this.hud.showMessage(pick(MEMES.load), '#4dff4d', 2.5)
+    }
+  }
+
+  /** Синхронизирует визуал мира с данными после загрузки */
+  _syncWorldAfterLoad() {
+    for (const e of this.enemies) {
+      if (!e.mesh) continue
+      if (e.state === 'dead') {
+        e.mesh.rotation.z = Math.PI / 2
+        e.mesh.position.y = 0.3
+      } else {
+        e.mesh.rotation.z = 0
+      }
+    }
+    for (const k of this.korovans) {
+      if (k.mesh) k.mesh.visible = k.alive
+    }
   }
 
   // ---- Пауза ----

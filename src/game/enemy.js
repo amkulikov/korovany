@@ -158,4 +158,20 @@ export class Enemy {
   }
 
   _dist(x, y) { return Math.sqrt((this.x - x) ** 2 + (this.y - y) ** 2) }
+
+  toJSON() {
+    return {
+      typeId: this.typeId, x: this.x, y: this.y, z: this.z,
+      hp: this.hp, state: this.state, heading: this.heading,
+      patrolCx: this.patrolCx, patrolCy: this.patrolCy,
+    }
+  }
+
+  fromJSON(d) {
+    this.x = d.x; this.y = d.y; this.z = d.z
+    this.hp = d.hp; this.heading = d.heading
+    this.state = d.state
+    this.patrolCx = d.patrolCx; this.patrolCy = d.patrolCy
+    if (this.hp <= 0) this.state = 'dead'
+  }
 }
