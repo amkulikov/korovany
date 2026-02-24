@@ -225,21 +225,25 @@ export class Game {
   }
 
   _showClickToPlay() {
-    if (isMobile) {
-      // На мобильных — сразу начинаем, показываем тач-контролы
-      if (this.touchControls) this.touchControls.show()
-      this.audio.playAmbient()
-      return
-    }
     const el = document.getElementById('click-to-play')
     el.classList.remove('hidden')
     const handler = () => {
       el.classList.add('hidden')
-      this.input.requestLock()
+      if (isMobile) {
+        // Fullscreen API — скрывает адресную строку и панели браузера
+        const doc = document.documentElement
+        const rfs = doc.requestFullscreen || doc.webkitRequestFullscreen
+        if (rfs) rfs.call(doc).catch(() => {})
+        if (this.touchControls) this.touchControls.show()
+      } else {
+        this.input.requestLock()
+      }
       this.audio.playAmbient()
       el.removeEventListener('click', handler)
+      el.removeEventListener('touchend', handler)
     }
     el.addEventListener('click', handler)
+    el.addEventListener('touchend', handler)
   }
 
   // ---- Очистка ----
