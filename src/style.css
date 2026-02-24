@@ -164,10 +164,13 @@ body {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
-  align-items: center;
+  align-items: safe center;
   justify-content: center;
   background: rgba(5, 5, 15, 0.95);
   z-index: 100;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 0;
 }
 
 .menu-panel {
@@ -178,6 +181,7 @@ body {
   text-align: center;
   max-width: 900px;
   min-width: 320px;
+  max-height: none;
 }
 
 .menu-title {
@@ -279,8 +283,6 @@ body {
 #shop-panel .menu-panel,
 #inventory-panel .menu-panel {
   max-width: 700px;
-  max-height: 80vh;
-  overflow-y: auto;
 }
 
 .shop-item, .inv-item {
@@ -624,6 +626,5 @@ body {
   #shop-panel .menu-panel,
   #inventory-panel .menu-panel {
     max-width: 95vw;
-    max-height: 85vh;
   }
 }
