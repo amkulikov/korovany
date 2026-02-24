@@ -587,12 +587,25 @@ export class Game {
     this.weaponAtkT = 0 // Анимация
     this.audio.playSwing()
 
-    // Ближайший враг
-    let closest = null, closestDist = 4.0
+    // Дальность атаки: у дальнобойного оружия — range, у ближнего — 4.0
+    const weaponData = ITEMS[player.inventory.weapon]
+    const attackRange = weaponData?.range || 4.0
+    const isRanged = attackRange > 5
+
+    let closest = null, closestDist = attackRange
     for (const e of this.enemies) {
       if (e.state === 'dead') continue
-      const d = Math.sqrt((e.x - player.x) ** 2 + (e.y - player.y) ** 2)
-      if (d < closestDist) { closest = e; closestDist = d }
+      const dx = e.x - player.x, dy = e.y - player.y
+      const d = Math.sqrt(dx * dx + dy * dy)
+      if (d >= closestDist) continue
+      // Дальнобойное оружие: проверка направления (конус ~45°)
+      if (isRanged && d > 4.0) {
+        const fwd = this.fpsCam.forwardDir
+        const dot = (dx / d) * fwd.x + (dy / d) * fwd.y
+        if (dot < 0.7) continue
+      }
+      closest = e
+      closestDist = d
     }
 
     if (closest) {
@@ -794,7 +807,8 @@ export class Game {
     const consumables = Object.entries(inv.items).filter(([id]) => ITEMS[id]?.type === 'consumable')
     if (slot < consumables.length) {
       const [id] = consumables[slot]
-      const [, msg] = inv.useConsumable(id, this.player.body)
+      const [heal, msg] = inv.useConsumable(id, this.player.body)
+      if (heal > 0) this.player.hp = this.player.body.totalHp
       this.combatLog.add(msg, 'system')
     }
   }
