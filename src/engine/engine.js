@@ -20,6 +20,7 @@ import * as saveLoad from '../game/saveLoad.js'
 
 import { HUD } from '../ui/hud.js'
 import * as menus from '../ui/menus.js'
+import { shouldShowOnboarding, showOnboarding } from '../ui/onboarding.js'
 import { isMobile } from './mobile.js'
 import { TouchControls } from '../ui/touchControls.js'
 
@@ -207,6 +208,7 @@ export class Game {
     this.hud.show()
 
     // Показать "нажмите чтобы играть"
+    this._isNewGame = !loadSlot
     this._showClickToPlay()
 
     this.running = true
@@ -229,21 +231,34 @@ export class Game {
     el.classList.remove('hidden')
     const handler = () => {
       el.classList.add('hidden')
-      if (isMobile) {
-        // Fullscreen API — скрывает адресную строку и панели браузера
-        const doc = document.documentElement
-        const rfs = doc.requestFullscreen || doc.webkitRequestFullscreen
-        if (rfs) rfs.call(doc).catch(() => {})
-        if (this.touchControls) this.touchControls.show()
-      } else {
-        this.input.requestLock()
-      }
-      this.audio.playAmbient()
       el.removeEventListener('click', handler)
       el.removeEventListener('touchend', handler)
+
+      if (this._isNewGame && shouldShowOnboarding()) {
+        this.paused = true
+        showOnboarding(() => {
+          this.paused = false
+          this._activateGameplay()
+        })
+      } else {
+        this._activateGameplay()
+      }
     }
     el.addEventListener('click', handler)
     el.addEventListener('touchend', handler)
+  }
+
+  _activateGameplay() {
+    if (isMobile) {
+      // Fullscreen API — скрывает адресную строку и панели браузера
+      const doc = document.documentElement
+      const rfs = doc.requestFullscreen || doc.webkitRequestFullscreen
+      if (rfs) rfs.call(doc).catch(() => {})
+      if (this.touchControls) this.touchControls.show()
+    } else {
+      this.input.requestLock()
+    }
+    this.audio.playAmbient()
   }
 
   // ---- Очистка ----

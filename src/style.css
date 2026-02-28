@@ -528,6 +528,95 @@ body {
   touch-action: none;
 }
 
+/* ========== ONBOARDING ========== */
+
+#onboarding-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 210;
+}
+
+.onboarding-card {
+  background: rgba(5, 5, 18, 0.95);
+  border: 1px solid rgba(230, 179, 26, 0.25);
+  border-radius: 12px;
+  padding: 32px 40px;
+  text-align: center;
+  max-width: 420px;
+  min-width: 300px;
+}
+
+.onboarding-key {
+  font-size: 40px;
+  color: #e6b31a;
+  margin-bottom: 12px;
+  font-weight: bold;
+  text-shadow: 0 0 15px rgba(230, 179, 26, 0.25);
+  letter-spacing: 2px;
+}
+
+.onboarding-title {
+  font-size: 22px;
+  color: #fff;
+  margin-bottom: 16px;
+}
+
+.onboarding-text {
+  font-size: 14px;
+  color: #bbb;
+  line-height: 1.8;
+  white-space: pre-line;
+  margin-bottom: 24px;
+}
+
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.onboarding-dots {
+  color: #666;
+  font-size: 13px;
+}
+
+.onboarding-btn {
+  padding: 10px 28px;
+  background: rgba(230, 179, 26, 0.15);
+  border: 1px solid rgba(230, 179, 26, 0.4);
+  border-radius: 6px;
+  color: #e6b31a;
+  font-family: 'Courier New', monospace;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.onboarding-btn:hover {
+  background: rgba(230, 179, 26, 0.3);
+}
+
+.onboarding-skip {
+  display: inline-block;
+  background: none;
+  border: none;
+  color: #555;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s;
+}
+
+.onboarding-skip:hover {
+  color: #999;
+}
+
 /* ========== MOBILE (class-based, any orientation) ========== */
 
 .mobile #hud-minimap {
@@ -626,5 +715,25 @@ body {
   #shop-panel .menu-panel,
   #inventory-panel .menu-panel {
     max-width: 95vw;
+  }
+
+  .onboarding-card {
+    width: 90vw;
+    padding: 24px 20px;
+    min-width: unset;
+  }
+
+  .onboarding-key {
+    font-size: 32px;
+  }
+
+  .onboarding-title {
+    font-size: 18px;
+  }
+
+  .onboarding-btn {
+    min-height: 48px;
+    font-size: 15px;
+    padding: 10px 24px;
   }
 }
