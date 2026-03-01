@@ -608,19 +608,30 @@ export class Game {
     const isRanged = attackRange > 5
 
     let closest = null, closestDist = attackRange
+    let bestDot = -1 // для дальнобойного: лучшее совпадение с прицелом
+    const fwd = isRanged ? this.fpsCam.forwardDir : null
     for (const e of this.enemies) {
       if (e.state === 'dead') continue
       const dx = e.x - player.x, dy = e.y - player.y
       const d = Math.sqrt(dx * dx + dy * dy)
-      if (d >= closestDist) continue
-      // Дальнобойное оружие: проверка направления (конус ~45°)
+      if (d >= attackRange) continue
+      // Дальнобойное оружие: проверка направления (конус ~60°)
       if (isRanged && d > 4.0) {
-        const fwd = this.fpsCam.forwardDir
         const dot = (dx / d) * fwd.x + (dy / d) * fwd.y
-        if (dot < 0.7) continue
+        if (dot < 0.5) continue
+        // Выбираем цель ближе к центру прицела (а не ближайшую по дистанции)
+        if (dot > bestDot) {
+          closest = e
+          closestDist = d
+          bestDot = dot
+        }
+        continue
       }
-      closest = e
-      closestDist = d
+      // Ближний бой: ближайший по дистанции
+      if (d < closestDist) {
+        closest = e
+        closestDist = d
+      }
     }
 
     if (closest) {

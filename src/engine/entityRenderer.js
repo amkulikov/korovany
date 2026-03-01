@@ -118,9 +118,15 @@ export function updateEnemyMesh(enemy, getHeight, dt = 0, isHostile = false) {
     const pos = toThree(enemy.x, enemy.y, gz)
     enemy.mesh.position.copy(pos)
 
-    // heading → rotation.y = PI - heading_rad
+    // heading → rotation.y = PI - heading_rad (с плавной интерполяцией)
     const headingRad = enemy.heading * Math.PI / 180
-    enemy.mesh.rotation.y = Math.PI - headingRad
+    const targetRotY = Math.PI - headingRad
+    let diff = targetRotY - enemy.mesh.rotation.y
+    // Нормализация в [-PI, PI] для кратчайшего поворота
+    while (diff > Math.PI) diff -= Math.PI * 2
+    while (diff < -Math.PI) diff += Math.PI * 2
+    const lerpSpeed = 8 // рад/с — быстро, но без дёрганья
+    enemy.mesh.rotation.y += diff * Math.min(1, lerpSpeed * dt)
 
     // Снять красную подсветку если осталась (устаревшая)
     if (ud.isRedTinted && ud.allMats) {
