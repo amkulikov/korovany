@@ -143,7 +143,7 @@ export class Body {
 
   applyTreatment(healAmount) {
     for (const p of Object.values(this.parts)) {
-      if (p.status === Status.INJURED || p.bleeding) p.heal(healAmount)
+      if (p.status !== Status.SEVERED && (p.hp < p.maxHp || p.bleeding)) p.heal(healAmount)
     }
   }
 
